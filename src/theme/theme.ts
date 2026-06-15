@@ -1,0 +1,45 @@
+export const theme = {
+  colors: {
+    bg: "#0c0a09",
+    bgElevated: "#161210",
+    panel: "rgba(28, 22, 18, 0.78)",
+    panelSolid: "#1b1512",
+    parchment: "#e8dcc0",
+    parchmentDark: "#cdbb95",
+    ink: "#2b211a",
+    gold: "#f5c451",
+    goldBright: "#ffe08a",
+    goldDim: "#9c7a33",
+    ember: "#e8642a",
+    emberBright: "#ff8a4c",
+    blood: "#8a1f1f",
+    arcane: "#7b5cff",
+    arcaneBright: "#a48bff",
+    text: "#efe6d6",
+    textDim: "#b7a78d",
+    textFaint: "#85765f",
+    border: "rgba(245, 196, 81, 0.22)",
+    borderStrong: "rgba(245, 196, 81, 0.5)",
+    danger: "#e5484d",
+    success: "#5bbf6a",
+  },
+  fonts: {
+    display: "'Cinzel', Georgia, serif",
+    heading: "'Cormorant Garamond', Georgia, serif",
+    body: "'EB Garamond', Georgia, serif",
+  },
+  radius: {
+    sm: "6px",
+    md: "10px",
+    lg: "16px",
+    xl: "24px",
+  },
+  shadow: {
+    glow: "0 0 24px rgba(245, 196, 81, 0.25)",
+    glowStrong: "0 0 40px rgba(245, 196, 81, 0.45)",
+    panel: "0 18px 50px rgba(0, 0, 0, 0.55)",
+    inset: "inset 0 1px 0 rgba(255,255,255,0.05)",
+  },
+} as const;
+
+export type AppTheme = typeof theme;
