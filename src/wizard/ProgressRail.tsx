@@ -70,7 +70,7 @@ const Sub = styled.span`
 `;
 
 export function ProgressRail() {
-  const { draft, currentStep, activeSteps, setStep, stepIssues } = useCharacter();
+  const { currentStep, activeSteps, setStep, stepIssues } = useCharacter();
   const steps = activeSteps();
   const currentIdx = steps.findIndex((s) => s.id === currentStep);
 
@@ -99,9 +99,6 @@ export function ProgressRail() {
           </Node>
         );
       })}
-      <div style={{ height: 1 }} aria-hidden>
-        {draft.name}
-      </div>
     </Rail>
   );
 }

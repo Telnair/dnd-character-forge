@@ -37,10 +37,9 @@ export function ReviewStep() {
   const derived = sheet();
 
   const doExport = async () => {
-    if (!sheetRef.current) return;
     setBusy(true);
     try {
-      await exportPdf(sheetRef.current, derived.name);
+      await exportPdf(derived);
     } catch (err) {
       console.error(err);
       alert("Export failed. Please try again.");

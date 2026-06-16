@@ -14,6 +14,7 @@ import {
 } from "@/engine";
 import { useCharacter } from "@/store/characterStore";
 import { Divider, Pill, ScrollArea, StatChip } from "@/ui/primitives";
+import { Tooltip } from "@/ui/Tooltip";
 import {
   StepIntro,
   FieldLabel,
@@ -26,7 +27,7 @@ const StatRow = styled.div`
   display: flex;
   gap: 0.6rem;
   flex-wrap: wrap;
-  margin: 0.4rem 0;
+  margin: 0.4rem 0 1.5rem;
 `;
 
 const StatLabel = styled.span`
@@ -120,18 +121,19 @@ function SpellPicker({
           const active = selected.includes(s.index);
           const locked = !active && selected.length >= count;
           return (
-            <SpellItem
-              key={s.index}
-              $active={active}
-              $locked={locked}
-              onClick={() => !locked && toggle(s.index)}
-            >
-              <SpellName>{s.name}</SpellName>
-              <span style={{ display: "flex", gap: "0.4rem" }}>
-                {kind === "leveled" && <Pill $tone="muted">Lv {s.level}</Pill>}
-                <Pill $tone="arcane">{s.school.name}</Pill>
-              </span>
-            </SpellItem>
+            <Tooltip key={s.index} title={s.name} content={s.desc?.join("\n\n")} block>
+              <SpellItem
+                $active={active}
+                $locked={locked}
+                onClick={() => !locked && toggle(s.index)}
+              >
+                <SpellName>{s.name}</SpellName>
+                <span style={{ display: "flex", gap: "0.4rem" }}>
+                  {kind === "leveled" && <Pill $tone="muted">Lv {s.level}</Pill>}
+                  <Pill $tone="arcane">{s.school.name}</Pill>
+                </span>
+              </SpellItem>
+            </Tooltip>
           );
         })}
       </ScrollArea>

@@ -161,7 +161,8 @@ export const Divider = styled.div`
 
 export const ScrollArea = styled.div<{ $max?: string }>`
   max-height: ${({ $max }) => $max ?? "420px"};
-  overflow-y: auto;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
   padding-right: 0.5rem;
 `;
 

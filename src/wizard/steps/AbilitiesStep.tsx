@@ -1,7 +1,7 @@
 import { useState } from "react";
 import styled from "styled-components";
 import { motion } from "framer-motion";
-import { ABILITY_NAMES, ABILITY_ORDER, type AbilityKey } from "@/data";
+import { ABILITY_NAMES, ABILITY_ORDER, abilityScoreMap, type AbilityKey } from "@/data";
 import {
   POINT_BUY_BUDGET,
   STANDARD_ARRAY,
@@ -16,6 +16,7 @@ import {
 } from "@/engine";
 import { useCharacter } from "@/store/characterStore";
 import { Divider, GhostButton, Pill } from "@/ui/primitives";
+import { Tooltip } from "@/ui/Tooltip";
 import { StepIntro, FieldLabel, HelpText, Block } from "../common";
 import { ABILITY_COLORS } from "@/assets/abilityColors";
 
@@ -260,7 +261,12 @@ export function AbilitiesStep() {
           const usePool = draft.abilityMethod !== "pointbuy";
           return (
             <AbilityRow key={k}>
-              <AbilityName $color={ABILITY_COLORS[k]}>{ABILITY_NAMES[k]}</AbilityName>
+              <Tooltip
+                title={ABILITY_NAMES[k]}
+                content={abilityScoreMap.get(k)?.desc?.join("\n\n")}
+              >
+                <AbilityName $color={ABILITY_COLORS[k]}>{ABILITY_NAMES[k]}</AbilityName>
+              </Tooltip>
 
               {usePool ? (
                 <Select

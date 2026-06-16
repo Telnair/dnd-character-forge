@@ -13,6 +13,10 @@ const OptionGroup = styled.div`
   margin-top: 0.5rem;
 `;
 
+const ChoiceBlock = styled.div`
+  margin-top: 1.6rem;
+`;
+
 const OptionBtn = styled.button<{ $active: boolean }>`
   text-align: left;
   padding: 0.7rem 0.9rem;
@@ -60,7 +64,7 @@ function ChoiceGroups({
       {choices.map((choice, i) => {
         const labels = optionLabels(choice);
         return (
-          <Block key={i}>
+          <ChoiceBlock key={i}>
             <FieldLabel>{choice.desc ?? `Choose ${choice.choose}`}</FieldLabel>
             <OptionGroup>
               {labels.map((label: string, j: number) => {
@@ -72,7 +76,7 @@ function ChoiceGroups({
                 );
               })}
             </OptionGroup>
-          </Block>
+          </ChoiceBlock>
         );
       })}
     </>

@@ -12,12 +12,12 @@ const Sheet = styled.div`
     linear-gradient(180deg, #17120e, #100c09);
   border: 1px solid ${({ theme }) => theme.colors.borderStrong};
   border-radius: ${({ theme }) => theme.radius.lg};
-  padding: 1.6rem;
+  padding: 1rem;
   color: ${({ theme }) => theme.colors.text};
   box-shadow: ${({ theme }) => theme.shadow.panel};
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: 0.8rem;
 `;
 
 const Header = styled.div`
@@ -26,12 +26,12 @@ const Header = styled.div`
   align-items: flex-end;
   gap: 1rem;
   border-bottom: 2px solid ${({ theme }) => theme.colors.border};
-  padding-bottom: 1rem;
+  padding-bottom: 0.7rem;
   flex-wrap: wrap;
 `;
 
 const Name = styled.h1`
-  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
   color: ${({ theme }) => theme.colors.goldBright};
   text-shadow: 0 0 20px rgba(245, 196, 81, 0.3);
   line-height: 1;
@@ -39,9 +39,9 @@ const Name = styled.h1`
 
 const SubLine = styled.div`
   font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: 1.15rem;
+  font-size: 1rem;
   color: ${({ theme }) => theme.colors.textDim};
-  margin-top: 0.3rem;
+  margin-top: 0.25rem;
 `;
 
 const LevelBadge = styled.div`
@@ -58,7 +58,7 @@ const LevelBadge = styled.div`
 const Columns = styled.div`
   display: grid;
   grid-template-columns: 280px 1fr;
-  gap: 1.2rem;
+  gap: 0.8rem;
   @media (max-width: 860px) {
     grid-template-columns: 1fr;
   }
@@ -67,36 +67,36 @@ const Columns = styled.div`
 const Col = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
+  gap: 0.8rem;
 `;
 
 const Card = styled.div`
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radius.md};
   background: rgba(0, 0, 0, 0.28);
-  padding: 0.9rem;
+  padding: 0.7rem;
 `;
 
 const CardLabel = styled.div`
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: ${({ theme }) => theme.colors.ember};
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.4rem;
 `;
 
 const AbilityGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.6rem;
+  gap: 0.5rem;
 `;
 
 const AbilityBox = styled.div<{ $color: string }>`
   border: 1px solid ${({ $color }) => $color}66;
   border-radius: ${({ theme }) => theme.radius.md};
   background: rgba(0, 0, 0, 0.3);
-  padding: 0.5rem;
+  padding: 0.4rem;
   text-align: center;
   position: relative;
 `;
@@ -111,7 +111,7 @@ const AbAbbr = styled.div<{ $color: string }>`
 
 const AbMod = styled.div`
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 1.6rem;
+  font-size: 1.3rem;
   color: ${({ theme }) => theme.colors.text};
 `;
 
@@ -122,21 +122,21 @@ const AbScore = styled.div`
 
 const StatGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.6rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
 `;
 
 const Stat = styled.div`
   text-align: center;
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radius.md};
-  padding: 0.6rem;
+  padding: 0.45rem;
   background: rgba(0, 0, 0, 0.25);
 `;
 
 const StatNum = styled.div`
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 1.6rem;
+  font-size: 1.3rem;
   color: ${({ theme }) => theme.colors.goldBright};
 `;
 
@@ -151,9 +151,9 @@ const Line = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.22rem 0;
+  padding: 0.12rem 0;
   font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: 1rem;
+  font-size: 0.92rem;
   border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
 `;
 
