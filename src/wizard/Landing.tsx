@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useCharacter } from "@/store/characterStore";
 import { readCharacterFile } from "@/export/characterIo";
 import { PrimaryButton, GhostButton } from "@/ui/primitives";
+import { D20Die } from "@/components/D20Die";
 
 const Wrap = styled.div`
   min-height: 100vh;
@@ -19,12 +20,6 @@ const Inner = styled(motion.div)`
   flex-direction: column;
   align-items: center;
   gap: 1.2rem;
-`;
-
-const Crest = styled(motion.img)`
-  width: 110px;
-  height: 110px;
-  filter: drop-shadow(0 0 30px rgba(245, 196, 81, 0.5));
 `;
 
 const Title = styled.h1`
@@ -93,12 +88,7 @@ export function Landing() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
       >
-        <Crest
-          src="/d20.svg"
-          alt=""
-          animate={{ y: [0, -10, 0] }}
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-        />
+        <D20Die />
         <Title>Character Forge</Title>
         <Tagline>
           Craft a Dungeons & Dragons hero from the first spark of an idea to a complete,
