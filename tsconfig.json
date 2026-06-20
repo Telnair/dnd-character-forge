@@ -18,8 +18,7 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@2024/*": ["../dnd2024/*"]
+      "@/*": ["src/*"]
     }
   },
   "include": ["src"]

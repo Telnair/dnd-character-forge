@@ -6,20 +6,20 @@
 // species normalized to the race shape the engine reads) and keep the legacy
 // `Srd*` aliases so the engine's existing call-sites compile unchanged.
 
-import type { Class } from "@2024/src/pipeline/schemas/class-2024.ts";
-import type { Subclass } from "@2024/src/pipeline/schemas/subclass-2024.ts";
-import type { Level } from "@2024/src/pipeline/schemas/level-2024.ts";
-import type { Species } from "@2024/src/pipeline/schemas/species-2024.ts";
-import type { Subspecies } from "@2024/src/pipeline/schemas/subspecies-2024.ts";
-import type { Background } from "@2024/src/pipeline/schemas/background-2024.ts";
-import type { Spell } from "@2024/src/pipeline/schemas/spell-2024.ts";
-import type { Equipment } from "@2024/src/pipeline/schemas/equipment-2024.ts";
-import type { Feat } from "@2024/src/pipeline/schemas/feat-2024.ts";
-import type { Feature } from "@2024/src/pipeline/schemas/feature-2024.ts";
-import type { Proficiency } from "@2024/src/pipeline/schemas/proficiency-2024.ts";
-import type { Language } from "@2024/src/pipeline/schemas/language-2024.ts";
-import type { Trait } from "@2024/src/pipeline/schemas/trait-2024.ts";
-import type { Condition } from "@2024/src/pipeline/schemas/condition-2024.ts";
+import type { Class } from "dnd-2024/src/pipeline/schemas/class-2024.ts";
+import type { Subclass } from "dnd-2024/src/pipeline/schemas/subclass-2024.ts";
+import type { Level } from "dnd-2024/src/pipeline/schemas/level-2024.ts";
+import type { Species } from "dnd-2024/src/pipeline/schemas/species-2024.ts";
+import type { Subspecies } from "dnd-2024/src/pipeline/schemas/subspecies-2024.ts";
+import type { Background } from "dnd-2024/src/pipeline/schemas/background-2024.ts";
+import type { Spell } from "dnd-2024/src/pipeline/schemas/spell-2024.ts";
+import type { Equipment } from "dnd-2024/src/pipeline/schemas/equipment-2024.ts";
+import type { Feat } from "dnd-2024/src/pipeline/schemas/feat-2024.ts";
+import type { Feature } from "dnd-2024/src/pipeline/schemas/feature-2024.ts";
+import type { Proficiency } from "dnd-2024/src/pipeline/schemas/proficiency-2024.ts";
+import type { Language } from "dnd-2024/src/pipeline/schemas/language-2024.ts";
+import type { Trait } from "dnd-2024/src/pipeline/schemas/trait-2024.ts";
+import type { Condition } from "dnd-2024/src/pipeline/schemas/condition-2024.ts";
 
 export type {
   Class,

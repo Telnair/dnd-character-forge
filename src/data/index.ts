@@ -5,19 +5,19 @@
 // must be re-joined here: class progression lives in a separate Levels file,
 // and subclass progression lives in the Features file (per subclass + level).
 
-import classesJson from "@2024/data/out/5e-SRD-Classes.json";
-import levelsJson from "@2024/data/out/5e-SRD-Levels.json";
-import subclassesJson from "@2024/data/out/5e-SRD-Subclasses.json";
-import featuresJson from "@2024/data/out/5e-SRD-Features.json";
-import speciesJson from "@2024/data/out/5e-SRD-Species.json";
-import subspeciesJson from "@2024/data/out/5e-SRD-Subspecies.json";
-import backgroundsJson from "@2024/data/out/5e-SRD-Backgrounds.json";
-import equipmentJson from "@2024/data/out/5e-SRD-Equipment.json";
-import spellsJson from "@2024/data/out/5e-SRD-Spells.json";
-import featsJson from "@2024/data/out/5e-SRD-Feats.json";
-import proficienciesJson from "@2024/data/out/5e-SRD-Proficiencies.json";
-import languagesJson from "@2024/data/out/5e-SRD-Languages.json";
-import traitsJson from "@2024/data/out/5e-SRD-Traits.json";
+import classesJson from "dnd-2024/data/out/5e-SRD-Classes.json";
+import levelsJson from "dnd-2024/data/out/5e-SRD-Levels.json";
+import subclassesJson from "dnd-2024/data/out/5e-SRD-Subclasses.json";
+import featuresJson from "dnd-2024/data/out/5e-SRD-Features.json";
+import speciesJson from "dnd-2024/data/out/5e-SRD-Species.json";
+import subspeciesJson from "dnd-2024/data/out/5e-SRD-Subspecies.json";
+import backgroundsJson from "dnd-2024/data/out/5e-SRD-Backgrounds.json";
+import equipmentJson from "dnd-2024/data/out/5e-SRD-Equipment.json";
+import spellsJson from "dnd-2024/data/out/5e-SRD-Spells.json";
+import featsJson from "dnd-2024/data/out/5e-SRD-Feats.json";
+import proficienciesJson from "dnd-2024/data/out/5e-SRD-Proficiencies.json";
+import languagesJson from "dnd-2024/data/out/5e-SRD-Languages.json";
+import traitsJson from "dnd-2024/data/out/5e-SRD-Traits.json";
 
 // Edition-neutral reference lists the 2024 dataset does not emit; kept locally.
 import skillsJson from "./srd/skills.json";

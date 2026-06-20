@@ -7,17 +7,17 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
-      // The 2024 PHB dataset + zod schemas live in the sibling `dnd2024`
-      // project; we import its JSON and inferred types directly (no copy).
-      "@2024": path.resolve(__dirname, "../dnd2024"),
     },
   },
   server: {
-    port: 5173,
-    open: false,
     fs: {
-      // Allow the dev server to read the sibling `dnd2024` project.
+      // The `dnd-2024` dependency is a github dep, but in local dev it's
+      // `bun link`-ed so node_modules/dnd-2024 symlinks to the sibling
+      // `../dnd2024` checkout. Vite resolves the symlink's real path, which
+      // lives outside the project root, so allow reading the parent dir.
       allow: [path.resolve(__dirname, "..")],
     },
+    port: 5173,
+    open: false,
   },
 });
