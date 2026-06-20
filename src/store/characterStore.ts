@@ -99,7 +99,8 @@ export const useCharacter = create<CharacterState>()(
       sheet: () => deriveSheet(get().draft),
     }),
     {
-      name: "dnd-character-forge",
+      // Bumped for the 2024 dataset so stale 2014 drafts don't rehydrate.
+      name: "dnd-character-forge-2024",
       partialize: (state) => ({
         draft: state.draft,
         currentStep: state.currentStep,

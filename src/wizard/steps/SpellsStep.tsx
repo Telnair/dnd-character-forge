@@ -13,8 +13,8 @@ import {
   formatModifier,
 } from "@/engine";
 import { useCharacter } from "@/store/characterStore";
-import { Divider, Pill, ScrollArea, StatChip } from "@/ui/primitives";
-import { Tooltip } from "@/ui/Tooltip";
+import { Divider, Grid, Pill, StatChip } from "@/ui/primitives";
+import { SpellTooltip } from "@/ui/SpellCard";
 import {
   StepIntro,
   FieldLabel,
@@ -46,18 +46,18 @@ const StatValue = styled.span`
 
 const SpellItem = styled.button<{ $active: boolean; $locked: boolean }>`
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
   width: 100%;
+  height: 100%;
   text-align: left;
-  padding: 0.5rem 0.7rem;
+  padding: 0.55rem 0.7rem;
   border-radius: ${({ theme }) => theme.radius.sm};
   border: 1px solid
     ${({ theme, $active }) => ($active ? theme.colors.borderStrong : "transparent")};
   background: ${({ $active }) => ($active ? "rgba(123,92,255,0.14)" : "rgba(0,0,0,0.25)")};
   color: ${({ theme }) => theme.colors.text};
-  margin-bottom: 0.3rem;
   cursor: ${({ $locked }) => ($locked ? "not-allowed" : "pointer")};
   opacity: ${({ $locked }) => ($locked ? 0.4 : 1)};
   &:hover {
@@ -68,6 +68,13 @@ const SpellItem = styled.button<{ $active: boolean; $locked: boolean }>`
 const SpellName = styled.span`
   font-family: ${({ theme }) => theme.fonts.heading};
   font-size: 1.02rem;
+  line-height: 1.2;
+`;
+
+const PillRow = styled.span`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
 `;
 
 function SpellPicker({
@@ -116,27 +123,27 @@ function SpellPicker({
         onChange={(e) => setQuery(e.target.value)}
         style={{ marginBottom: "0.5rem" }}
       />
-      <ScrollArea $max="300px">
+      <Grid $min="190px" $gap="0.5rem">
         {list.map((s) => {
           const active = selected.includes(s.index);
           const locked = !active && selected.length >= count;
           return (
-            <Tooltip key={s.index} title={s.name} content={s.desc?.join("\n\n")} block>
+            <SpellTooltip key={s.index} spell={s} block>
               <SpellItem
                 $active={active}
                 $locked={locked}
                 onClick={() => !locked && toggle(s.index)}
               >
                 <SpellName>{s.name}</SpellName>
-                <span style={{ display: "flex", gap: "0.4rem" }}>
+                <PillRow>
                   {kind === "leveled" && <Pill $tone="muted">Lv {s.level}</Pill>}
                   <Pill $tone="arcane">{s.school.name}</Pill>
-                </span>
+                </PillRow>
               </SpellItem>
-            </Tooltip>
+            </SpellTooltip>
           );
         })}
-      </ScrollArea>
+      </Grid>
     </Block>
   );
 }

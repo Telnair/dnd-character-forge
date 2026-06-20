@@ -234,7 +234,6 @@ function drawHeader(ctx: Ctx, sheet: DerivedSheet): void {
     sheet.classLine,
     sheet.subraceName ?? sheet.raceName,
     sheet.backgroundName,
-    sheet.alignment,
   ].filter(Boolean);
   font(ctx, "normal", 10.5);
   text(ctx, COLOR.muted);
@@ -257,7 +256,15 @@ function drawHeader(ctx: Ctx, sheet: DerivedSheet): void {
 }
 
 function drawSpellcasting(ctx: Ctx, sheet: DerivedSheet): void {
-  if (sheet.spellcasting.length === 0) return;
+  // A non-caster class can still carry always-prepared subclass spells (e.g. a
+  // Psi Warrior fighter's Telekinesis at level 18), so render the section if
+  // either is present.
+  if (
+    sheet.spellcasting.length === 0 &&
+    sheet.subclassSpells.length === 0 &&
+    sheet.featSpells.length === 0
+  )
+    return;
   sectionHeader(ctx, "Spellcasting");
 
   for (const sc of sheet.spellcasting) {
@@ -295,6 +302,22 @@ function drawSpellcasting(ctx: Ctx, sheet: DerivedSheet): void {
   }
   if (slotParts.length > 0) {
     labelledParagraph(ctx, "Slots", slotParts.join("   "));
+  }
+
+  for (const ss of sheet.subclassSpells) {
+    labelledParagraph(
+      ctx,
+      `${ss.subclassName} (always prepared)`,
+      ss.spells.map((s) => s.name).join(", ")
+    );
+  }
+
+  for (const fs of sheet.featSpells) {
+    const parts = [
+      ...fs.spells.map((s) => s.name),
+      ...fs.notes.map((n) => `${n} (choose on sheet)`),
+    ];
+    if (parts.length) labelledParagraph(ctx, fs.featName, parts.join("  ·  "));
   }
 }
 
@@ -407,11 +430,24 @@ function buildPdf(sheet: DerivedSheet): jsPDF {
     labelledParagraph(ctx, "Tools", sheet.proficiencies.tools.join(", "));
   if (sheet.languages.length > 0)
     labelledParagraph(ctx, "Languages", sheet.languages.join(", "));
+  if (sheet.weaponMasteries.length > 0)
+    labelledParagraph(
+      ctx,
+      "Weapon Masteries",
+      sheet.weaponMasteries.map((m) => `${m.weapon} (${m.mastery})`).join(", ")
+    );
 
   // Equipment
   if (sheet.equipment.length > 0) {
     sectionHeader(ctx, "Equipment");
-    paragraph(ctx, sheet.equipment.join(", "));
+    paragraph(
+      ctx,
+      sheet.equipment
+        .map((e) =>
+          e.unit ? `${e.quantity} ${e.unit}` : e.quantity > 1 ? `${e.name} ×${e.quantity}` : e.name
+        )
+        .join(", ")
+    );
   }
 
   // Character

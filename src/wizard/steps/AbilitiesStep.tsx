@@ -1,7 +1,14 @@
 import { useState } from "react";
 import styled from "styled-components";
 import { motion } from "framer-motion";
-import { ABILITY_NAMES, ABILITY_ORDER, abilityScoreMap, type AbilityKey } from "@/data";
+import {
+  ABILITY_ABBR,
+  ABILITY_NAMES,
+  ABILITY_ORDER,
+  abilityScoreMap,
+  backgroundMap,
+  type AbilityKey,
+} from "@/data";
 import {
   POINT_BUY_BUDGET,
   STANDARD_ARRAY,
@@ -17,7 +24,7 @@ import {
 import { useCharacter } from "@/store/characterStore";
 import { Divider, GhostButton, Pill } from "@/ui/primitives";
 import { Tooltip } from "@/ui/Tooltip";
-import { StepIntro, FieldLabel, HelpText, Block } from "../common";
+import { StepIntro, FieldLabel, HelpText, Block, Counter } from "../common";
 import { ABILITY_COLORS } from "@/assets/abilityColors";
 
 const Methods = styled.div`
@@ -198,10 +205,36 @@ export function AbilitiesStep() {
 
   const remaining = pointBuyRemaining(draft.baseAbilities);
 
+  // 2024: ability boosts come from the chosen background (+2/+1 or +1/+1/+1
+  // among its three listed abilities).
+  const bg = draft.backgroundIndex ? backgroundMap.get(draft.backgroundIndex) : undefined;
+  const boostAbilities = (bg?.ability_scores ?? []).map((a) => a.index as AbilityKey);
+  const boostTotal = boostAbilities.reduce(
+    (s, k) => s + (draft.backgroundAbilityChoices?.[k] ?? 0),
+    0
+  );
+  const adjustBoost = (key: AbilityKey, delta: number) =>
+    update((d) => {
+      d.backgroundAbilityChoices ??= {};
+      const cur = d.backgroundAbilityChoices[key] ?? 0;
+      const next = cur + delta;
+      if (next < 0 || next > 2) return;
+      const others = boostAbilities.filter((k) => k !== key);
+      const sumOthers = others.reduce(
+        (s, k) => s + (d.backgroundAbilityChoices![k] ?? 0),
+        0
+      );
+      if (next + sumOthers > 3) return; // total boost is +3
+      const twoElsewhere = others.some((k) => (d.backgroundAbilityChoices![k] ?? 0) === 2);
+      if (next === 2 && twoElsewhere) return; // at most one +2
+      if (next === 0) delete d.backgroundAbilityChoices[key];
+      else d.backgroundAbilityChoices[key] = next;
+    });
+
   return (
     <>
       <StepIntro
-        eyebrow="Step III"
+        eyebrow="Step IV"
         title="Forge Your Aptitudes"
         desc="Six abilities define what your hero can do. Distribute them wisely — they ripple through every roll you make."
       />
@@ -311,6 +344,41 @@ export function AbilitiesStep() {
           );
         })}
       </Table>
+
+      <Divider />
+      <Block>
+        <FieldLabel>
+          Background Ability Boosts{" "}
+          <Counter $done={boostTotal === 3}>{boostTotal}/3</Counter>
+        </FieldLabel>
+        {bg ? (
+          <>
+            <HelpText>
+              From your {bg.name} background, assign +2 and +1 (or +1/+1/+1) among these abilities.
+            </HelpText>
+            <div style={{ display: "flex", gap: "0.8rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
+              {boostAbilities.map((k) => {
+                const v = draft.backgroundAbilityChoices?.[k] ?? 0;
+                return (
+                  <Stepper key={k}>
+                    <StepBtn onClick={() => adjustBoost(k, -1)} disabled={v <= 0}>
+                      −
+                    </StepBtn>
+                    <ModBadge>
+                      {ABILITY_ABBR[k]} {v > 0 ? `+${v}` : ""}
+                    </ModBadge>
+                    <StepBtn onClick={() => adjustBoost(k, 1)} disabled={v >= 2}>
+                      +
+                    </StepBtn>
+                  </Stepper>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <HelpText>Choose a background first to assign its ability boosts.</HelpText>
+        )}
+      </Block>
     </>
   );
 }

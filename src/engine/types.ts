@@ -28,35 +28,43 @@ export interface AsiChoice {
   /** ability -> increment (for asi). */
   increases?: Partial<Record<AbilityKey, number>>;
   featIndex?: string;
+  /** Structured selections for a chosen feat's own `choices`, keyed by choice idx. */
+  featChoices?: Record<number, string[]>;
 }
 
 export interface CharacterDraft {
   name: string;
+  /** Species (2024 rename of race); the field name is kept for continuity. */
   raceIndex?: string;
+  /** Subspecies (2024 rename of subrace). */
   subraceIndex?: string;
-  raceAbilityChoices?: Partial<Record<AbilityKey, number>>; // e.g. half-elf +1/+1
-  raceSkillChoices?: string[];
-  raceLanguageChoices?: string[];
+  /** Selections for species/subspecies trait choices, keyed by trait index. */
+  speciesTraitChoices?: Record<string, string[]>;
 
   classes: ClassEntry[];
 
   abilityMethod: AbilityGenMethod;
-  /** Base scores before racial bonuses (8..15 for array/pointbuy). */
+  /** Base scores before background bonuses (8..15 for array/pointbuy). */
   baseAbilities: AbilityScores;
   /** Manual/rolled values pool when method = manual. */
   rolledPool?: number[];
+  /** 2024 background ability boosts: ability -> +1/+2 (total 3; 2/1 or 1/1/1). */
+  backgroundAbilityChoices?: Partial<Record<AbilityKey, number>>;
 
   expertiseChoices?: string[];
 
   backgroundIndex?: string;
   backgroundSkillChoices?: string[];
-  backgroundLanguageChoices?: string[];
   backgroundEquipmentChoices?: Record<number, string>;
+  /** Selections for the background's Origin feat `choices`, keyed by choice idx. */
+  originFeatChoices?: Record<number, string[]>;
+
+  /** Chosen weapons whose Mastery property is active (equipment indexes). */
+  weaponMasteryChoices?: string[];
 
   /** ASI/feat decisions keyed by "classIndex:level". */
   asiChoices: Record<string, AsiChoice>;
 
-  alignment?: string;
   personality?: string;
   ideals?: string;
   bonds?: string;
@@ -81,6 +89,16 @@ export interface SpellSlotRow {
   total: number;
 }
 
+export interface EquipmentItem {
+  name: string;
+  /** Count for normal items; the coin amount when this entry is currency. */
+  quantity: number;
+  /** Catalog index when the item resolves to a known piece of equipment. */
+  index?: string;
+  /** Coin unit (e.g. "GP") when this entry is currency. */
+  unit?: string;
+}
+
 export interface DerivedSpellcasting {
   classIndex: string;
   ability: AbilityKey;
@@ -99,7 +117,6 @@ export interface DerivedSheet {
   subraceName?: string;
   classLine: string;
   backgroundName?: string;
-  alignment?: string;
   speed: number;
   size: string;
   hitDice: Record<string, number>;
@@ -118,6 +135,8 @@ export interface DerivedSheet {
   acNote: string;
   languages: string[];
   proficiencies: { weapons: string[]; armor: string[]; tools: string[] };
+  /** 2024 weapon mastery: the weapons whose Mastery property the character uses. */
+  weaponMasteries: { weapon: string; mastery: string; desc: string }[];
   features: { name: string; source: string; desc: string[] }[];
   spellSlots: SpellSlotRow[];
   pactSlots?: { level: number; count: number };
@@ -127,7 +146,39 @@ export interface DerivedSheet {
     cantrips: { index: string; name: string }[];
     spells: { index: string; name: string }[];
   }[];
-  equipment: string[];
+  /** Subclass-granted spells that are always prepared (domain/oath/circle). */
+  subclassSpells: {
+    classIndex: string;
+    subclassName: string;
+    spells: { index: string; name: string; level: number }[];
+  }[];
+  /**
+   * Species/subspecies trait-granted innate spells (2024 lineage/legacy magic,
+   * e.g. Fiendish Legacy, Elven Lineage), gated by character level. `ability` is
+   * the casting-ability option(s) the trait names (fixed, or a player choice).
+   */
+  speciesSpells: {
+    traitName: string;
+    source: string;
+    ability: string[];
+    spells: {
+      index: string;
+      name: string;
+      level: number;
+      swappableFrom?: string[];
+    }[];
+  }[];
+  /**
+   * Spells a feat grants (Magic Initiate, Fey/Shadow Touched, …). Resolved picks
+   * (e.g. once the feat's spell-list class is chosen) appear in `spells`; picks the
+   * builder can't enumerate from data are surfaced as `notes` to resolve on the sheet.
+   */
+  featSpells: {
+    featName: string;
+    spells: { index: string; name: string }[];
+    notes: string[];
+  }[];
+  equipment: EquipmentItem[];
   personality?: string;
   ideals?: string;
   bonds?: string;

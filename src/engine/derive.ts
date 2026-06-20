@@ -1,22 +1,28 @@
 import {
   backgroundMap,
   classMap,
+  equipment,
   equipmentMap,
+  featMap,
   raceMap,
   spellMap,
   subclassMap,
   subraceMap,
+  traitMap,
   type AbilityKey,
 } from "@/data";
+import { equipmentOptionLabel } from "./choices";
 import { abilityMods, finalAbilities } from "./abilities";
 import { computeArmorClass } from "./armor";
-import { CLASS_CASTING } from "./config";
+import { collectFeatGrants } from "./feats";
+import { CLASS_CASTING, WEAPON_MASTERY_DESC, weaponMasteriesForClass } from "./config";
 import { hitDiceByClass, maxHitPoints } from "./hitpoints";
 import {
   computeLanguages,
   computeOtherProficiencies,
   computeSavingThrows,
   computeSkills,
+  speciesTraitList,
 } from "./proficiency";
 import { featuresForEntry, proficiencyBonus, totalLevel } from "./progression";
 import {
@@ -28,7 +34,7 @@ import {
   spellcastingEntries,
   spellsToChoose,
 } from "./spells";
-import type { CharacterDraft, DerivedSheet } from "./types";
+import type { CharacterDraft, DerivedSheet, EquipmentItem } from "./types";
 
 export function classLine(draft: CharacterDraft): string {
   return draft.classes
@@ -42,28 +48,223 @@ export function classLine(draft: CharacterDraft): string {
     .join(" / ");
 }
 
-function resolveEquipment(draft: CharacterDraft): string[] {
-  const items: string[] = [];
-  for (const entry of draft.classes) {
-    const cls = classMap.get(entry.classIndex);
-    if (!entry.isPrimary) continue; // starting equipment from primary class only
+interface RawEquipmentItem {
+  name: string;
+  quantity: number;
+  index?: string;
+  unit?: string;
+}
+
+const equipmentByName = new Map(equipment.map((e) => [e.name.toLowerCase(), e]));
+
+/** Walk a single starting-equipment option branch into concrete item tokens. */
+function collectOptionItems(option: any, out: RawEquipmentItem[]): void {
+  if (!option) return;
+  if (typeof option === "string") {
+    out.push({ name: option, quantity: 1 });
+    return;
+  }
+  switch (option.option_type) {
+    case "counted_reference":
+      out.push({
+        index: option.of?.index,
+        name: equipmentMap.get(option.of?.index)?.name ?? option.of?.name ?? "Item",
+        quantity: option.count ?? 1,
+      });
+      break;
+    case "money":
+      out.push({ name: option.unit, unit: option.unit, quantity: option.count ?? 0 });
+      break;
+    case "multiple":
+      for (const it of option.items ?? []) collectOptionItems(it, out);
+      break;
+    default:
+      out.push({ name: equipmentOptionLabel(option), quantity: 1 });
+  }
+}
+
+/** Resolve the player's stored option labels back to concrete items. */
+function collectChosenOptions(
+  options: any[] | undefined,
+  chosen: Record<number, string> | undefined,
+  out: RawEquipmentItem[]
+): void {
+  if (!options || !chosen) return;
+  options.forEach((choice, i) => {
+    const label = chosen[i];
+    if (!label) return;
+    const branches =
+      choice?.from?.option_set_type === "options_array" ? choice.from.options ?? [] : [];
+    const match = branches.find((o: any) => equipmentOptionLabel(o) === label);
+    if (match) {
+      collectOptionItems(match, out);
+    } else {
+      // Category pick (label is the item name) or anything we can't structure.
+      const found = equipmentByName.get(label.toLowerCase());
+      out.push({ index: found?.index, name: found?.name ?? label, quantity: 1 });
+    }
+  });
+}
+
+function rawEquipment(draft: CharacterDraft): RawEquipmentItem[] {
+  const out: RawEquipmentItem[] = [];
+  const primary = draft.classes.find((c) => c.isPrimary) ?? draft.classes[0];
+  if (primary) {
+    const cls = classMap.get(primary.classIndex);
     for (const se of cls?.starting_equipment ?? []) {
-      const name = equipmentMap.get(se.equipment.index)?.name ?? se.equipment.name;
-      items.push(se.quantity > 1 ? `${name} x${se.quantity}` : name);
+      out.push({
+        index: se.equipment.index,
+        name: equipmentMap.get(se.equipment.index)?.name ?? se.equipment.name,
+        quantity: se.quantity ?? 1,
+      });
     }
-    for (const label of Object.values(entry.equipmentChoices ?? {})) {
-      if (label) items.push(label);
-    }
+    collectChosenOptions(cls?.starting_equipment_options, primary.equipmentChoices, out);
   }
   const bg = draft.backgroundIndex ? backgroundMap.get(draft.backgroundIndex) : undefined;
   for (const se of bg?.starting_equipment ?? []) {
-    const name = equipmentMap.get(se.equipment.index)?.name ?? se.equipment.name;
-    items.push(se.quantity > 1 ? `${name} x${se.quantity}` : name);
+    out.push({
+      index: se.equipment.index,
+      name: equipmentMap.get(se.equipment.index)?.name ?? se.equipment.name,
+      quantity: se.quantity ?? 1,
+    });
   }
-  for (const label of Object.values(draft.backgroundEquipmentChoices ?? {})) {
-    if (label) items.push(label);
+  collectChosenOptions(bg?.starting_equipment_options, draft.backgroundEquipmentChoices, out);
+  return out;
+}
+
+/**
+ * Resolve starting gear into discrete items, merging duplicates: identical
+ * catalog items stack their counts, and coins of the same unit sum together.
+ */
+function resolveEquipment(draft: CharacterDraft): EquipmentItem[] {
+  const order: string[] = [];
+  const byKey = new Map<string, EquipmentItem>();
+  for (const raw of rawEquipment(draft)) {
+    const unit = raw.unit ? raw.unit.toUpperCase() : undefined;
+    const key = unit
+      ? `coin:${unit}`
+      : raw.index
+        ? `idx:${raw.index}`
+        : `name:${raw.name.toLowerCase()}`;
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.quantity += raw.quantity;
+    } else {
+      byKey.set(key, {
+        name: unit ?? raw.name,
+        quantity: raw.quantity,
+        index: raw.index,
+        unit,
+      });
+      order.push(key);
+    }
   }
-  return items;
+  return order.map((k) => byKey.get(k)!);
+}
+
+/** How many weapons the character may apply a Mastery property to (best class). */
+export function weaponMasteryCount(draft: CharacterDraft): number {
+  let n = 0;
+  for (const entry of draft.classes) {
+    n = Math.max(n, weaponMasteriesForClass(entry.classIndex, entry.level));
+  }
+  return n;
+}
+
+/**
+ * Spells a subclass adds to your prepared list (domain / oath / circle spells).
+ * In 2024 these are *always prepared* and don't count against your prepared
+ * limit, so they're surfaced as their own section rather than mixed into the
+ * class's chosen spells. Each spell's grant level is the trailing number of its
+ * level-prerequisite index (e.g. `life-domain-3` → level 3); spells above the
+ * character's level in that class are withheld.
+ *
+ * Approximation: Circle of the Land's list is a *choice of one land type*, so
+ * this over-lists it (it shows every land's spells). Every other subclass
+ * grants its whole list, so this is exact for them.
+ */
+function computeSubclassSpells(draft: CharacterDraft): {
+  classIndex: string;
+  subclassName: string;
+  spells: { index: string; name: string; level: number }[];
+}[] {
+  const out: {
+    classIndex: string;
+    subclassName: string;
+    spells: { index: string; name: string; level: number }[];
+  }[] = [];
+  for (const entry of draft.classes) {
+    if (!entry.subclassIndex) continue;
+    const sub = subclassMap.get(entry.subclassIndex);
+    if (!sub?.spells?.length) continue;
+    const spells: { index: string; name: string; level: number }[] = [];
+    for (const s of sub.spells) {
+      const lvlPrereq = s.prerequisites?.find((p) => p.type === "level");
+      const grantLevel = lvlPrereq
+        ? Number(/-(\d+)$/.exec(lvlPrereq.index)?.[1] ?? 1)
+        : 1;
+      if (entry.level < grantLevel) continue;
+      spells.push({
+        index: s.spell.index,
+        name: s.spell.name,
+        level: spellMap.get(s.spell.index)?.level ?? 0,
+      });
+    }
+    if (spells.length) {
+      spells.sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+      out.push({ classIndex: entry.classIndex, subclassName: sub.name, spells });
+    }
+  }
+  return out;
+}
+
+/**
+ * Innate spells granted by species/subspecies traits (2024 lineage/legacy magic:
+ * Fiendish Legacy, Elven/Gnomish Lineage, Light Bearer, …). Each grant carries the
+ * character level it's gained at; spells above the current level are withheld. The
+ * casting ability is the trait's option(s) (a fixed ability or a player choice of
+ * Int/Wis/Cha), surfaced for display rather than folded into a save DC.
+ */
+function computeSpeciesSpells(draft: CharacterDraft): DerivedSheet["speciesSpells"] {
+  const lvl = totalLevel(draft);
+  const out: DerivedSheet["speciesSpells"] = [];
+  for (const trait of speciesTraitList(draft)) {
+    const sc = trait.trait_specific?.spellcasting;
+    if (!sc) continue;
+    const spells = sc.spells
+      .filter((g) => lvl >= g.level)
+      .map((g) => ({
+        index: g.spell.index,
+        name: g.spell.name,
+        level: spellMap.get(g.spell.index)?.level ?? 0,
+        swappableFrom: g.swappable_from,
+      }))
+      .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+    if (!spells.length) continue;
+    out.push({
+      traitName: trait.name,
+      source: trait.subspecies?.[0]?.name ?? trait.species?.[0]?.name ?? "Species",
+      ability: sc.ability.map((a) => a.name),
+      spells,
+    });
+  }
+  return out;
+}
+
+function computeWeaponMasteries(
+  draft: CharacterDraft
+): { weapon: string; mastery: string; desc: string }[] {
+  const out: { weapon: string; mastery: string; desc: string }[] = [];
+  for (const idx of draft.weaponMasteryChoices ?? []) {
+    const w = equipmentMap.get(idx);
+    if (!w?.mastery) continue;
+    out.push({
+      weapon: w.name,
+      mastery: w.mastery.name,
+      desc: WEAPON_MASTERY_DESC[w.mastery.index] ?? "",
+    });
+  }
+  return out;
 }
 
 export function deriveSheet(draft: CharacterDraft): DerivedSheet {
@@ -72,20 +273,37 @@ export function deriveSheet(draft: CharacterDraft): DerivedSheet {
   const pb = proficiencyBonus(draft);
   const skills = computeSkills(draft);
   const perception = skills.find((s) => s.index === "perception");
-  const ac = computeArmorClass(draft);
+  const equipmentItems = resolveEquipment(draft);
+  const ac = computeArmorClass(draft, equipmentItems);
 
   const race = draft.raceIndex ? raceMap.get(draft.raceIndex) : undefined;
   const subrace = draft.subraceIndex ? subraceMap.get(draft.subraceIndex) : undefined;
   const bg = draft.backgroundIndex ? backgroundMap.get(draft.backgroundIndex) : undefined;
 
   const features = draft.classes.flatMap((entry) => featuresForEntry(entry));
-  // Race traits as features.
-  for (const t of race?.traits ?? []) {
-    features.push({ name: t.name, source: race!.name, desc: [] });
+  // Species/subspecies traits as features (with the player's chosen variant, if any).
+  const speciesName = race?.name ?? subrace?.name ?? "Species";
+  for (const trait of speciesTraitList(draft)) {
+    const chosen = draft.speciesTraitChoices?.[trait.index] ?? [];
+    // For a subtrait pick (e.g. Draconic Ancestry → "Draconic Ancestry (Red)")
+    // the chosen trait's own name already includes the parent, so use it directly.
+    const variants = trait.trait_specific?.subtrait_options
+      ? chosen.map((idx) => traitMap.get(idx)?.name ?? idx)
+      : [];
+    const name = variants.length ? variants.join(", ") : trait.name;
+    features.push({ name, source: speciesName, desc: trait.desc });
   }
-  if (bg?.feature) {
-    features.push({ name: bg.feature.name, source: bg.name, desc: bg.feature.desc });
+  // 2024 backgrounds grant an Origin Feat.
+  if (bg?.feat) {
+    const feat = featMap.get(bg.feat.index);
+    features.push({
+      name: bg.feat.name,
+      source: `${bg.name} (Origin Feat)`,
+      desc: feat?.desc ?? [],
+    });
   }
+
+  const weaponMasteries = computeWeaponMasteries(draft);
 
   const spellcasting = spellcastingEntries(draft).map((entry) => {
     const cfg = CLASS_CASTING[entry.classIndex];
@@ -118,7 +336,6 @@ export function deriveSheet(draft: CharacterDraft): DerivedSheet {
     subraceName: subrace?.name,
     classLine: classLine(draft),
     backgroundName: bg?.name,
-    alignment: draft.alignment,
     speed: race?.speed ?? 30,
     size: race?.size ?? "Medium",
     hitDice: hitDiceByClass(draft),
@@ -133,12 +350,16 @@ export function deriveSheet(draft: CharacterDraft): DerivedSheet {
     acNote: ac.note,
     languages: computeLanguages(draft),
     proficiencies: computeOtherProficiencies(draft),
+    weaponMasteries,
     features,
     spellSlots: computeSpellSlots(draft),
     pactSlots: computePactSlots(draft),
     spellcasting,
     knownSpells,
-    equipment: resolveEquipment(draft),
+    subclassSpells: computeSubclassSpells(draft),
+    speciesSpells: computeSpeciesSpells(draft),
+    featSpells: collectFeatGrants(draft).spells,
+    equipment: equipmentItems,
     personality: draft.personality,
     ideals: draft.ideals,
     bonds: draft.bonds,

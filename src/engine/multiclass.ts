@@ -17,6 +17,7 @@ export function meetsClassPrerequisite(
   const mc = cls.multi_classing;
   const scores = finalAbilities(draft);
   const reasons: string[] = [];
+  if (!mc) return { ok: true, reasons };
 
   if (mc.prerequisites && mc.prerequisites.length > 0) {
     for (const p of mc.prerequisites) {
@@ -75,5 +76,5 @@ export function canMulticlass(
 /** Multiclass proficiency references gained when taking a non-primary class. */
 export function multiclassProficiencies(classIndex: string) {
   const cls = classMap.get(classIndex);
-  return cls?.multi_classing.proficiencies ?? [];
+  return cls?.multi_classing?.proficiencies ?? [];
 }

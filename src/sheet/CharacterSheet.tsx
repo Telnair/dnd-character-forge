@@ -1,10 +1,12 @@
 import { forwardRef } from "react";
 import styled from "styled-components";
-import { ABILITY_NAMES, ABILITY_ORDER, skillMap, spellMap, type AbilityKey } from "@/data";
+import { ABILITY_NAMES, ABILITY_ORDER, classMap, skillMap, spellMap } from "@/data";
 import { formatModifier, type DerivedSheet } from "@/engine";
 import { ABILITY_COLORS } from "@/assets/abilityColors";
-import { SkillIcon } from "@/assets/SkillIcon";
+import { SkillIcon, SaveIcon } from "@/assets/SkillIcon";
 import { Tooltip } from "@/ui/Tooltip";
+import { SpellTooltip } from "@/ui/SpellCard";
+import { FeatureTooltip } from "@/ui/FeatureCard";
 
 const Sheet = styled.div`
   background:
@@ -176,6 +178,30 @@ const Mod = styled.span`
   text-align: right;
 `;
 
+const SkillGroup = styled.div`
+  margin-bottom: 0.45rem;
+  &:last-child {
+    margin-bottom: 0;
+  }
+`;
+
+const SkillGroupLabel = styled.div<{ $color: string }>`
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: ${({ $color }) => $color};
+  border-bottom: 1px solid ${({ $color }) => `${$color}33`};
+  padding-bottom: 0.15rem;
+  margin: 0.3rem 0 0.25rem;
+`;
+
+const SaveLabel = styled.span`
+  font-family: ${({ theme }) => theme.fonts.heading};
+  color: ${({ theme }) => theme.colors.textDim};
+  font-style: italic;
+`;
+
 const TagWrap = styled.div`
   display: flex;
   flex-wrap: wrap;
@@ -190,6 +216,37 @@ const Tag = styled.span`
   border: 1px solid ${({ theme }) => theme.colors.border};
   background: rgba(0, 0, 0, 0.3);
   color: ${({ theme }) => theme.colors.textDim};
+`;
+
+const EquipGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 0.5rem;
+`;
+
+const EquipBox = styled.div<{ $coin?: boolean }>`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border: 1px solid
+    ${({ theme, $coin }) => ($coin ? `${theme.colors.goldBright}55` : theme.colors.border)};
+  border-radius: ${({ theme }) => theme.radius.md};
+  background: ${({ $coin }) => ($coin ? "rgba(245,196,81,0.1)" : "rgba(0,0,0,0.28)")};
+  padding: 0.45rem 0.6rem;
+`;
+
+const EquipName = styled.span`
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 0.92rem;
+  color: ${({ theme }) => theme.colors.text};
+`;
+
+const EquipQty = styled.span`
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 0.85rem;
+  color: ${({ theme }) => theme.colors.goldBright};
+  flex: 0 0 auto;
 `;
 
 const FeatureItem = styled.div`
@@ -233,10 +290,6 @@ const Prose = styled.p`
   white-space: pre-wrap;
 `;
 
-function spellDesc(index: string): string | undefined {
-  return spellMap.get(index)?.desc?.join("\n\n");
-}
-
 function skillDesc(index: string): string | undefined {
   return skillMap.get(index)?.desc?.join("\n\n");
 }
@@ -251,7 +304,6 @@ export const CharacterSheet = forwardRef<HTMLDivElement, { sheet: DerivedSheet }
             <SubLine>
               {sheet.classLine} · {sheet.subraceName ?? sheet.raceName}
               {sheet.backgroundName ? ` · ${sheet.backgroundName}` : ""}
-              {sheet.alignment ? ` · ${sheet.alignment}` : ""}
             </SubLine>
           </div>
           <LevelBadge>Level {sheet.level}</LevelBadge>
@@ -315,32 +367,41 @@ export const CharacterSheet = forwardRef<HTMLDivElement, { sheet: DerivedSheet }
             </Card>
 
             <Card data-export-block>
-              <CardLabel>Saving Throws</CardLabel>
-              {sheet.savingThrows.map((st) => (
-                <Line key={st.ability}>
-                  <span style={{ display: "flex", alignItems: "center" }}>
-                    <Dot $on={st.proficient} />
-                    {ABILITY_NAMES[st.ability as AbilityKey]}
-                  </span>
-                  <Mod>{formatModifier(st.modifier)}</Mod>
-                </Line>
-              ))}
-            </Card>
-
-            <Card data-export-block>
-              <CardLabel>Skills</CardLabel>
-              {sheet.skills.map((s) => (
-                <Line key={s.index}>
-                  <Tooltip title={s.name} content={skillDesc(s.index)}>
-                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      <Dot $on={s.proficient} $exp={s.expertise} />
-                      <SkillIcon index={s.index} size={15} />
-                      {s.name}
-                    </span>
-                  </Tooltip>
-                  <Mod>{formatModifier(s.modifier)}</Mod>
-                </Line>
-              ))}
+              <CardLabel>Saving Throws &amp; Skills</CardLabel>
+              {ABILITY_ORDER.map((ab) => {
+                const group = sheet.skills.filter((s) => s.ability === ab);
+                const save = sheet.savingThrows.find((st) => st.ability === ab);
+                if (!save && group.length === 0) return null;
+                return (
+                  <SkillGroup key={ab}>
+                    <SkillGroupLabel $color={ABILITY_COLORS[ab]}>
+                      {ABILITY_NAMES[ab]}
+                    </SkillGroupLabel>
+                    {save && (
+                      <Line>
+                        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <Dot $on={save.proficient} />
+                          <SaveIcon ability={ab} size={15} />
+                          <SaveLabel>Saving Throw</SaveLabel>
+                        </span>
+                        <Mod>{formatModifier(save.modifier)}</Mod>
+                      </Line>
+                    )}
+                    {group.map((s) => (
+                      <Line key={s.index}>
+                        <Tooltip title={s.name} content={skillDesc(s.index)}>
+                          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <Dot $on={s.proficient} $exp={s.expertise} />
+                            <SkillIcon index={s.index} size={15} />
+                            {s.name}
+                          </span>
+                        </Tooltip>
+                        <Mod>{formatModifier(s.modifier)}</Mod>
+                      </Line>
+                    ))}
+                  </SkillGroup>
+                );
+              })}
             </Card>
           </Col>
 
@@ -382,9 +443,9 @@ export const CharacterSheet = forwardRef<HTMLDivElement, { sheet: DerivedSheet }
                         </div>
                         <TagWrap>
                           {ks.cantrips.map((c) => (
-                            <Tooltip key={c.index} title={c.name} content={spellDesc(c.index)}>
+                            <SpellTooltip key={c.index} index={c.index}>
                               <Tag>{c.name}</Tag>
-                            </Tooltip>
+                            </SpellTooltip>
                           ))}
                         </TagWrap>
                       </>
@@ -402,13 +463,101 @@ export const CharacterSheet = forwardRef<HTMLDivElement, { sheet: DerivedSheet }
                                 (spellMap.get(b.index)?.level ?? 0)
                             )
                             .map((c) => (
-                              <Tooltip key={c.index} title={c.name} content={spellDesc(c.index)}>
+                              <SpellTooltip key={c.index} index={c.index}>
                                 <Tag>{c.name}</Tag>
-                              </Tooltip>
+                              </SpellTooltip>
                             ))}
                         </TagWrap>
                       </>
                     )}
+                  </div>
+                ))}
+              </Card>
+            )}
+
+            {sheet.subclassSpells.length > 0 && (
+              <Card data-export-block>
+                <CardLabel>Subclass Spells · Always Prepared</CardLabel>
+                {sheet.subclassSpells.map((ss) => (
+                  <div key={ss.classIndex} style={{ marginBottom: "0.5rem" }}>
+                    <div style={{ fontSize: "0.8rem", color: "#85765f", margin: "0.2rem 0 0.3rem" }}>
+                      {ss.subclassName}
+                    </div>
+                    <TagWrap>
+                      {ss.spells.map((s) => (
+                        <SpellTooltip key={s.index} index={s.index}>
+                          <Tag>{s.name}</Tag>
+                        </SpellTooltip>
+                      ))}
+                    </TagWrap>
+                  </div>
+                ))}
+              </Card>
+            )}
+
+            {sheet.speciesSpells.length > 0 && (
+              <Card data-export-block>
+                <CardLabel>Species &amp; Legacy Spells · Always Prepared</CardLabel>
+                {sheet.speciesSpells.map((ss, i) => (
+                  <div key={`${ss.source}-${ss.traitName}-${i}`} style={{ marginBottom: "0.5rem" }}>
+                    <div style={{ fontSize: "0.8rem", color: "#85765f", margin: "0.2rem 0 0.3rem" }}>
+                      {ss.source} · {ss.traitName}
+                      {ss.ability.length > 0 && (
+                        <span style={{ color: "#6f6354" }}> · {ss.ability.join(" / ")}</span>
+                      )}
+                    </div>
+                    <TagWrap>
+                      {ss.spells.map((s) => (
+                        <SpellTooltip key={s.index} index={s.index}>
+                          <Tag>{s.name}</Tag>
+                        </SpellTooltip>
+                      ))}
+                    </TagWrap>
+                    {ss.spells.some((s) => s.swappableFrom?.length) && (
+                      <div
+                        style={{
+                          fontSize: "0.72rem",
+                          color: "#6f6354",
+                          marginTop: 3,
+                          fontStyle: "italic",
+                        }}
+                      >
+                        Cantrip swappable each Long Rest from{" "}
+                        {[...new Set(ss.spells.flatMap((s) => s.swappableFrom ?? []))]
+                          .map((c) => classMap.get(c)?.name ?? c)
+                          .join(", ")}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </Card>
+            )}
+
+            {sheet.featSpells.length > 0 && (
+              <Card data-export-block>
+                <CardLabel>Feat Spells</CardLabel>
+                {sheet.featSpells.map((fs, i) => (
+                  <div key={`${fs.featName}-${i}`} style={{ marginBottom: "0.5rem" }}>
+                    <div style={{ fontSize: "0.85rem", color: "#c8b690", margin: "0.2rem 0 0.2rem" }}>
+                      {fs.featName}
+                    </div>
+                    {fs.spells.length > 0 && (
+                      <TagWrap>
+                        {fs.spells.map((s) => (
+                          <SpellTooltip key={s.index} index={s.index}>
+                            <Tag>{s.name}</Tag>
+                          </SpellTooltip>
+                        ))}
+                      </TagWrap>
+                    )}
+                    {fs.notes.map((g, j) => (
+                      <div
+                        key={j}
+                        style={{ fontSize: "0.82rem", color: "#85765f", marginTop: 3 }}
+                      >
+                        {g} <em>(choose on your sheet)</em>
+                      </div>
+                    ))}
                   </div>
                 ))}
               </Card>
@@ -419,14 +568,35 @@ export const CharacterSheet = forwardRef<HTMLDivElement, { sheet: DerivedSheet }
               <div style={{ columns: 2, columnGap: "1.2rem" }}>
                 {sheet.features.map((f, i) => (
                   <FeatureItem key={`${f.name}-${i}`} style={{ breakInside: "avoid" }}>
-                    <FeatureName>
-                      {f.name}
-                      <FeatureSrc>{f.source}</FeatureSrc>
-                    </FeatureName>
+                    <FeatureTooltip feature={f}>
+                      <FeatureName as="span">
+                        {f.name}
+                        <FeatureSrc>{f.source}</FeatureSrc>
+                      </FeatureName>
+                    </FeatureTooltip>
                   </FeatureItem>
                 ))}
               </div>
             </Card>
+
+            {sheet.weaponMasteries.length > 0 && (
+              <Card data-export-block>
+                <CardLabel>Weapon Masteries</CardLabel>
+                {sheet.weaponMasteries.map((m, i) => (
+                  <FeatureItem key={`${m.weapon}-${i}`} style={{ breakInside: "avoid" }}>
+                    <FeatureName>
+                      {m.weapon}
+                      <FeatureSrc>{m.mastery}</FeatureSrc>
+                    </FeatureName>
+                    {m.desc && (
+                      <div style={{ fontSize: "0.85rem", color: "#b7a78d", marginTop: 2 }}>
+                        {m.desc}
+                      </div>
+                    )}
+                  </FeatureItem>
+                ))}
+              </Card>
+            )}
 
             <Card data-export-block>
               <CardLabel>Proficiencies & Languages</CardLabel>
@@ -456,11 +626,14 @@ export const CharacterSheet = forwardRef<HTMLDivElement, { sheet: DerivedSheet }
 
             <Card data-export-block>
               <CardLabel>Equipment</CardLabel>
-              <TagWrap>
+              <EquipGrid>
                 {sheet.equipment.map((e, i) => (
-                  <Tag key={`${e}-${i}`}>{e}</Tag>
+                  <EquipBox key={`${e.index ?? e.name}-${i}`} $coin={!!e.unit}>
+                    <EquipName>{e.unit ? `${e.quantity} ${e.unit}` : e.name}</EquipName>
+                    {!e.unit && e.quantity > 1 && <EquipQty>×{e.quantity}</EquipQty>}
+                  </EquipBox>
                 ))}
-              </TagWrap>
+              </EquipGrid>
             </Card>
 
             {(sheet.personality || sheet.ideals || sheet.bonds || sheet.flaws || sheet.backstory) && (

@@ -1,6 +1,14 @@
-import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import styled from "styled-components";
+import {
+  autoUpdate,
+  flip,
+  offset,
+  shift,
+  size,
+  useFloating,
+} from "@floating-ui/react-dom";
 
 const Wrapper = styled.span<{ $block?: boolean }>`
   position: relative;
@@ -9,13 +17,12 @@ const Wrapper = styled.span<{ $block?: boolean }>`
   align-items: center;
 `;
 
-const Bubble = styled.div<{ $placement: "top" | "bottom" }>`
-  position: fixed;
+const Bubble = styled.div<{ $rich?: boolean }>`
   z-index: 1000;
   width: max-content;
-  max-width: 320px;
+  max-width: ${({ $rich }) => ($rich ? "360px" : "320px")};
   overflow-y: auto;
-  padding: 0.6rem 0.7rem;
+  padding: ${({ $rich }) => ($rich ? "0" : "0.6rem 0.7rem")};
   border-radius: ${({ theme }) => theme.radius.md};
   border: 1px solid ${({ theme }) => theme.colors.borderStrong};
   background: #16110d;
@@ -24,10 +31,11 @@ const Bubble = styled.div<{ $placement: "top" | "bottom" }>`
   font-family: ${({ theme }) => theme.fonts.body};
   font-size: 0.82rem;
   line-height: 1.4;
-  white-space: pre-wrap;
+  /* Plain-string tooltips honor their literal \n breaks; rich content (a card)
+     manages its own layout. */
+  white-space: ${({ $rich }) => ($rich ? "normal" : "pre-wrap")};
   text-align: left;
   pointer-events: none;
-  transform: translate(-50%, ${({ $placement }) => ($placement === "top" ? "-100%" : "0")});
 `;
 
 const BubbleTitle = styled.span`
@@ -39,13 +47,6 @@ const BubbleTitle = styled.span`
   margin-bottom: 0.3rem;
 `;
 
-interface Coords {
-  left: number;
-  top: number;
-  placement: "top" | "bottom";
-  maxHeight: number;
-}
-
 const GAP = 8;
 
 export function Tooltip({
@@ -55,65 +56,60 @@ export function Tooltip({
   block,
 }: {
   title?: string;
-  content?: string;
+  /** Plain text (literal \n line breaks honored) or a rich node such as a card. */
+  content?: ReactNode;
   children: ReactNode;
   block?: boolean;
 }) {
-  const wrapperRef = useRef<HTMLSpanElement>(null);
-  const [coords, setCoords] = useState<Coords | null>(null);
+  const [open, setOpen] = useState(false);
 
-  const computePosition = useCallback(() => {
-    const el = wrapperRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const spaceAbove = rect.top - GAP;
-    const spaceBelow = window.innerHeight - rect.bottom - GAP;
-    // Place on whichever side has more room so we can show the most content.
-    const placement: "top" | "bottom" = spaceAbove >= spaceBelow ? "top" : "bottom";
-    const maxHeight = Math.max(0, placement === "top" ? spaceAbove : spaceBelow) - 4;
-    setCoords({
-      left: centerX,
-      top: placement === "top" ? rect.top - GAP : rect.bottom + GAP,
-      placement,
-      maxHeight,
-    });
-  }, []);
-
-  const hide = useCallback(() => setCoords(null), []);
-
-  useLayoutEffect(() => {
-    if (!coords) return;
-    const onScrollOrResize = () => hide();
-    window.addEventListener("scroll", onScrollOrResize, true);
-    window.addEventListener("resize", onScrollOrResize);
-    return () => {
-      window.removeEventListener("scroll", onScrollOrResize, true);
-      window.removeEventListener("resize", onScrollOrResize);
-    };
-  }, [coords, hide]);
+  // floating-ui owns the geometry: prefer top, flip to bottom when it doesn't
+  // fit, shift along the viewport to dodge horizontal overflow, and cap the
+  // height to whatever room remains on the chosen side.
+  const { refs, floatingStyles, isPositioned } = useFloating({
+    open,
+    placement: "top",
+    strategy: "fixed",
+    whileElementsMounted: autoUpdate,
+    middleware: [
+      offset(GAP),
+      flip({ padding: GAP }),
+      shift({ padding: GAP }),
+      size({
+        padding: GAP,
+        apply({ availableHeight, elements }) {
+          elements.floating.style.maxHeight = `${Math.max(0, availableHeight)}px`;
+        },
+      }),
+    ],
+  });
 
   if (!content) return <>{children}</>;
 
+  const rich = typeof content !== "string";
+
   return (
     <Wrapper
-      ref={wrapperRef}
+      ref={refs.setReference}
       tabIndex={0}
       $block={block}
-      onMouseEnter={computePosition}
-      onMouseLeave={hide}
-      onFocus={computePosition}
-      onBlur={hide}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={() => setOpen(false)}
     >
       {children}
-      {coords &&
+      {open &&
         createPortal(
           <Bubble
+            ref={refs.setFloating}
             role="tooltip"
-            $placement={coords.placement}
-            style={{ left: coords.left, top: coords.top, maxHeight: coords.maxHeight }}
+            $rich={rich}
+            // Keep it mounted so floating-ui can measure it, but hidden until the
+            // first position is computed — otherwise it flashes at the corner.
+            style={{ ...floatingStyles, visibility: isPositioned ? "visible" : "hidden" }}
           >
-            {title && <BubbleTitle>{title}</BubbleTitle>}
+            {!rich && title && <BubbleTitle>{title}</BubbleTitle>}
             {content}
           </Bubble>,
           document.body

@@ -1,9 +1,9 @@
 import { backgroundMap, classMap, proficiencyMap, skillMap } from "@/data";
 import {
-  RACE_FIXED_SKILLS,
   classOtherProfChoices,
   classSkillChoice,
   expertiseSlots,
+  speciesGrantedSkills,
 } from "@/engine";
 import { useCharacter } from "@/store/characterStore";
 import { Divider, Pill } from "@/ui/primitives";
@@ -21,12 +21,11 @@ function skillsFromBackground(bgIndex?: string): string[] {
 export function SkillsStep() {
   const { draft, update } = useCharacter();
 
-  const fixedRace = draft.raceIndex ? RACE_FIXED_SKILLS[draft.raceIndex] ?? [] : [];
-  const raceChosen = draft.raceSkillChoices ?? [];
+  const speciesSkills = speciesGrantedSkills(draft);
   const bgSkills = skillsFromBackground(draft.backgroundIndex);
 
   const proficientElsewhere = (classIndex: string) => {
-    const set = new Set<string>([...fixedRace, ...raceChosen, ...bgSkills]);
+    const set = new Set<string>([...speciesSkills, ...bgSkills]);
     for (const entry of draft.classes) {
       if (entry.classIndex === classIndex) continue;
       for (const s of entry.skillChoices ?? []) set.add(s);
@@ -58,7 +57,7 @@ export function SkillsStep() {
 
   const expSlots = expertiseSlots(draft);
   const allProficientSkills = (() => {
-    const set = new Set<string>([...fixedRace, ...raceChosen, ...bgSkills]);
+    const set = new Set<string>([...speciesSkills, ...bgSkills]);
     for (const entry of draft.classes) for (const s of entry.skillChoices ?? []) set.add(s);
     return [...set];
   })();
@@ -79,11 +78,11 @@ export function SkillsStep() {
         desc="Pick the skills your class lets you master. Proficiencies already granted by your race or background cannot be chosen twice."
       />
 
-      {(fixedRace.length > 0 || raceChosen.length > 0 || bgSkills.length > 0) && (
+      {(speciesSkills.length > 0 || bgSkills.length > 0) && (
         <Block>
           <FieldLabel>Already Proficient</FieldLabel>
           <ChipRow>
-            {[...new Set([...fixedRace, ...raceChosen, ...bgSkills])].map((s) => (
+            {[...new Set([...speciesSkills, ...bgSkills])].map((s) => (
               <Pill key={s} $tone="muted">
                 {skillMap.get(s)?.name ?? s}
               </Pill>

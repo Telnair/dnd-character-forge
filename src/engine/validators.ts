@@ -2,19 +2,13 @@ import {
   ABILITY_ORDER,
   backgroundMap,
   classMap,
+  featMap,
   raceMap,
 } from "@/data";
-import {
-  RACE_FREE_LANGUAGES,
-  RACE_FREE_SKILLS,
-  STANDARD_ARRAY,
-} from "./config";
-import {
-  pointBuyRemaining,
-  raceAbilityChoiceCount,
-} from "./abilities";
+import { STANDARD_ARRAY } from "./config";
+import { pointBuyRemaining } from "./abilities";
 import { classOtherProfChoices, classSkillChoice } from "./choices";
-import { expertiseSlots } from "./proficiency";
+import { expertiseSlots, speciesTraitChoiceGroups, speciesTraitList } from "./proficiency";
 import { subclassUnlockedFor, allAsiOpportunities } from "./progression";
 import {
   cantripsKnownFor,
@@ -38,27 +32,22 @@ export type StepId =
 
 export function validateRace(d: CharacterDraft): string[] {
   const issues: string[] = [];
-  if (!d.raceIndex) return ["Choose a race."];
+  if (!d.raceIndex) return ["Choose a species."];
   const race = raceMap.get(d.raceIndex);
-  if (race && race.subraces.length > 0 && !d.subraceIndex) {
-    issues.push("Choose a subrace.");
+  if (race && (race.subraces?.length ?? 0) > 0 && !d.subraceIndex) {
+    issues.push("Choose a lineage/subspecies.");
   }
-  const abilityPicks = raceAbilityChoiceCount(d);
-  if (abilityPicks > 0) {
-    const total = ABILITY_ORDER.reduce(
-      (s, k) => s + (d.raceAbilityChoices?.[k] ?? 0),
-      0
-    );
-    if (total !== abilityPicks)
-      issues.push(`Assign ${abilityPicks} racial ability point(s).`);
-  }
-  const freeSkills = RACE_FREE_SKILLS[d.raceIndex] ?? 0;
-  if ((d.raceSkillChoices?.length ?? 0) !== freeSkills) {
-    issues.push(`Choose ${freeSkills} racial skill(s).`);
-  }
-  const freeLangs = RACE_FREE_LANGUAGES[d.raceIndex] ?? 0;
-  if ((d.raceLanguageChoices?.length ?? 0) !== freeLangs) {
-    issues.push(`Choose ${freeLangs} bonus language(s).`);
+  // Required species/subspecies trait choices (e.g. Draconic Ancestry, Warforged's
+  // skill + tool). A trait may have several groups; each is checked against only the
+  // picks that belong to it (groups' option sets are disjoint).
+  for (const trait of speciesTraitList(d)) {
+    const picks = d.speciesTraitChoices?.[trait.index] ?? [];
+    for (const group of speciesTraitChoiceGroups(trait)) {
+      const have = picks.filter((p) =>
+        group.options.some((o) => o.index === p)
+      ).length;
+      if (have !== group.choose) issues.push(`${trait.name}: choose ${group.choose}.`);
+    }
   }
   return issues;
 }
@@ -87,6 +76,16 @@ export function validateAbilities(d: CharacterDraft): string[] {
     if (values.some((v) => v < 3 || v > 18))
       issues.push("Assign all six rolled scores.");
   }
+  // 2024 background ability boosts: +2/+1 or +1/+1/+1 (total 3).
+  const bg = d.backgroundIndex ? backgroundMap.get(d.backgroundIndex) : undefined;
+  if (bg) {
+    const total = (bg.ability_scores ?? []).reduce(
+      (s, a) => s + (d.backgroundAbilityChoices?.[a.index as keyof typeof d.backgroundAbilityChoices] ?? 0),
+      0
+    );
+    if (total !== 3)
+      issues.push("Assign your background ability boosts (+2/+1 or +1/+1/+1).");
+  }
   return issues;
 }
 
@@ -94,10 +93,13 @@ export function validateBackground(d: CharacterDraft): string[] {
   const issues: string[] = [];
   if (!d.backgroundIndex) return ["Choose a background."];
   const bg = backgroundMap.get(d.backgroundIndex);
-  const langs = bg?.language_options?.choose ?? 0;
-  if ((d.backgroundLanguageChoices?.length ?? 0) !== langs) {
-    issues.push(`Choose ${langs} background language(s).`);
-  }
+  // Origin feat choices (spell list, ability, proficiencies, spells).
+  const feat = bg?.feat ? featMap.get(bg.feat.index) : undefined;
+  ((feat as any)?.choices ?? []).forEach((c: any, i: number) => {
+    const need = c.choose ?? 0;
+    const have = d.originFeatChoices?.[i]?.length ?? 0;
+    if (have !== need) issues.push(`${feat!.name}: complete choice ${i + 1}.`);
+  });
   return issues;
 }
 
@@ -191,6 +193,15 @@ export function validateAdvancement(d: CharacterDraft): string[] {
       if (total !== 2) issues.push(`Assign 2 ability points at ${opp.classIndex} ${opp.level}.`);
     } else if (!choice.featIndex) {
       issues.push(`Choose a feat at ${opp.classIndex} ${opp.level}.`);
+    } else {
+      // Resolve the chosen feat's own structured choices.
+      const feat = featMap.get(choice.featIndex);
+      ((feat as any)?.choices ?? []).forEach((c: any, i: number) => {
+        const need = c.choose ?? 0;
+        const have = choice.featChoices?.[i]?.length ?? 0;
+        if (have !== need)
+          issues.push(`${feat!.name}: complete choice ${i + 1} at ${opp.classIndex} ${opp.level}.`);
+      });
     }
   }
   return issues;

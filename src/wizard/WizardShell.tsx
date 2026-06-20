@@ -121,7 +121,7 @@ export function WizardShell() {
           <img src="/d20.svg" width={40} height={40} alt="" />
           <div>
             <BrandMark>CHARACTER FORGE</BrandMark>
-            <BrandSub>D&D 5e · SRD</BrandSub>
+            <BrandSub>D&D 2024 · PHB</BrandSub>
           </div>
         </Brand>
         <ProgressRail />

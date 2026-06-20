@@ -50,9 +50,11 @@ export function featuresForEntry(
 
   for (const lvl of cls.levels) {
     if (lvl.level > entry.level) break;
-    for (const ref of lvl.features) {
+    for (const ref of lvl.features ?? []) {
       // Skip the generic "ability score improvement" feature entries; handled separately.
       if (/ability-score-improvement/.test(ref.index)) continue;
+      // Skip the "choose a subclass" placeholder feature (handled by the subclass step).
+      if (/-subclass$/.test(ref.index)) continue;
       // Skip subclass placeholder features unless the subclass is chosen.
       const feature = featureMap.get(ref.index);
       out.push({

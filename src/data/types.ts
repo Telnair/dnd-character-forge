@@ -1,11 +1,51 @@
-// Minimal typed views over the SRD snapshot (only fields the app uses).
+// Typed views over the 2024 PHB dataset.
+//
+// The entity types are the zod-inferred types from the sibling `dnd2024`
+// project's schemas (imported directly — no copy). We add a few "enriched"
+// types for the reshaping the engine needs (class/subclass levels merged in,
+// species normalized to the race shape the engine reads) and keep the legacy
+// `Srd*` aliases so the engine's existing call-sites compile unchanged.
 
+import type { Class } from "@2024/src/pipeline/schemas/class-2024.ts";
+import type { Subclass } from "@2024/src/pipeline/schemas/subclass-2024.ts";
+import type { Level } from "@2024/src/pipeline/schemas/level-2024.ts";
+import type { Species } from "@2024/src/pipeline/schemas/species-2024.ts";
+import type { Subspecies } from "@2024/src/pipeline/schemas/subspecies-2024.ts";
+import type { Background } from "@2024/src/pipeline/schemas/background-2024.ts";
+import type { Spell } from "@2024/src/pipeline/schemas/spell-2024.ts";
+import type { Equipment } from "@2024/src/pipeline/schemas/equipment-2024.ts";
+import type { Feat } from "@2024/src/pipeline/schemas/feat-2024.ts";
+import type { Feature } from "@2024/src/pipeline/schemas/feature-2024.ts";
+import type { Proficiency } from "@2024/src/pipeline/schemas/proficiency-2024.ts";
+import type { Language } from "@2024/src/pipeline/schemas/language-2024.ts";
+import type { Trait } from "@2024/src/pipeline/schemas/trait-2024.ts";
+import type { Condition } from "@2024/src/pipeline/schemas/condition-2024.ts";
+
+export type {
+  Class,
+  Subclass,
+  Level,
+  Species,
+  Subspecies,
+  Background,
+  Spell,
+  Equipment,
+  Feat,
+  Feature,
+  Proficiency,
+  Language,
+  Trait,
+  Condition,
+};
+
+/** {index, name, url} reference, used everywhere in the dataset. */
 export interface ApiRef {
   index: string;
   name: string;
   url: string;
 }
 
+/** A recursive "choose N from a set of options" structure (loose, structural). */
 export interface OptionSet {
   option_set_type: string;
   options?: any[];
@@ -15,9 +55,9 @@ export interface OptionSet {
 
 export interface Choice {
   desc?: string;
-  choose: number;
-  type: string;
-  from: OptionSet;
+  choose?: number;
+  type?: string;
+  from?: OptionSet;
 }
 
 export interface AbilityBonus {
@@ -25,125 +65,55 @@ export interface AbilityBonus {
   bonus: number;
 }
 
-export interface SrdSpellcastingInfo {
-  level: number;
-  spellcasting_ability: ApiRef;
-  info: { name: string; desc: string[] }[];
-}
+// --- Enriched views the adapter (src/data/index.ts) produces ----------------
 
-export interface SrdLevelSpellcasting {
-  cantrips_known?: number;
-  spells_known?: number;
-  spell_slots_level_1?: number;
-  spell_slots_level_2?: number;
-  spell_slots_level_3?: number;
-  spell_slots_level_4?: number;
-  spell_slots_level_5?: number;
-  spell_slots_level_6?: number;
-  spell_slots_level_7?: number;
-  spell_slots_level_8?: number;
-  spell_slots_level_9?: number;
-}
+/** Spellcasting progression at a level (the non-null half of Level.spellcasting). */
+export type SrdLevelSpellcasting = NonNullable<Level["spellcasting"]>;
 
-export interface SrdClassLevel {
-  level: number;
-  ability_score_bonuses: number;
-  prof_bonus: number;
-  features: ApiRef[];
-  spellcasting?: SrdLevelSpellcasting;
-  class_specific?: Record<string, any>;
-  subclass?: ApiRef;
-}
+/** A class with its per-level progression (merged from the Levels file). */
+export type ClassWithLevels = Class & { levels: Level[] };
 
-export interface SrdMultiClassing {
-  prerequisites?: { ability_score: ApiRef; minimum_score: number }[];
-  prerequisite_options?: Choice;
-  proficiencies?: ApiRef[];
-  proficiency_choices?: Choice[];
-}
-
-export interface SrdClass {
-  index: string;
-  name: string;
-  hit_die: number;
-  proficiency_choices: Choice[];
-  proficiencies: ApiRef[];
-  saving_throws: ApiRef[];
-  starting_equipment: { equipment: ApiRef; quantity: number }[];
-  starting_equipment_options: Choice[];
-  multi_classing: SrdMultiClassing;
-  subclasses: ApiRef[];
-  spellcasting?: SrdSpellcastingInfo;
-  levels: SrdClassLevel[];
-  spellRefs: ApiRef[];
-}
-
-export interface SrdSubclassLevel {
+/** A subclass with per-level features (grouped from the Features file). */
+export interface SubclassLevel {
   level: number;
   features: ApiRef[];
-  subclass_specific?: Record<string, any>;
-  spellcasting?: SrdLevelSpellcasting;
 }
+export type SubclassWithLevels = Subclass & { levels: SubclassLevel[] };
 
-export interface SrdSubclass {
-  index: string;
-  name: string;
-  class: ApiRef;
-  subclass_flavor: string;
-  desc: string[];
-  levels: SrdSubclassLevel[];
-  spells?: any[];
-}
-
-export interface SrdRace {
-  index: string;
-  name: string;
-  speed: number;
+/** Species normalized to the engine's race shape (2024 species carry no ASIs). */
+export type RaceView = Species & {
   ability_bonuses: AbilityBonus[];
-  alignment: string;
-  age: string;
-  size: string;
-  size_description: string;
-  languages: ApiRef[];
-  language_desc: string;
-  language_options?: Choice;
-  traits: ApiRef[];
   subraces: ApiRef[];
-  starting_proficiencies?: ApiRef[];
-  starting_proficiency_options?: Choice;
-}
+  languages: ApiRef[];
+};
 
-export interface SrdSubrace {
-  index: string;
-  name: string;
-  race: ApiRef;
-  desc: string;
+/** Subspecies normalized to the engine's subrace shape. */
+export type SubraceView = Subspecies & {
   ability_bonuses: AbilityBonus[];
-  starting_proficiencies?: ApiRef[];
-  languages?: ApiRef[];
-  racial_traits: ApiRef[];
-}
+  race: ApiRef;
+};
 
-export interface SrdSpell {
-  index: string;
-  name: string;
-  desc: string[];
-  higher_level?: string[];
-  range: string;
-  components: string[];
-  material?: string;
-  ritual: boolean;
-  duration: string;
-  concentration: boolean;
-  casting_time: string;
-  level: number;
-  attack_type?: string;
-  damage?: any;
-  school: ApiRef;
-  classes: ApiRef[];
-  subclasses: ApiRef[];
-}
+/** Background with the flat starting_equipment list the engine reads (always []). */
+export type BackgroundView = Background & {
+  starting_equipment: { equipment: ApiRef; quantity: number }[];
+};
 
+// --- Legacy `Srd*` aliases (engine call-sites import these names) -----------
+
+export type SrdClass = ClassWithLevels;
+export type SrdSubclass = SubclassWithLevels;
+export type SrdRace = RaceView;
+export type SrdSubrace = SubraceView;
+export type SrdBackground = BackgroundView;
+export type SrdSpell = Spell;
+export type SrdFeature = Feature;
+export type SrdFeat = Feat;
+export type SrdEquipment = Equipment;
+export type SrdProficiency = Proficiency;
+export type SrdLanguage = Language;
+export type SrdTrait = Trait;
+
+/** Skill / ability-score reference lists (edition-neutral local snapshot). */
 export interface SrdSkill {
   index: string;
   name: string;
@@ -157,63 +127,4 @@ export interface SrdAbilityScore {
   full_name: string;
   desc: string[];
   skills: ApiRef[];
-}
-
-export interface SrdBackground {
-  index: string;
-  name: string;
-  starting_proficiencies: ApiRef[];
-  language_options?: Choice;
-  starting_equipment: { equipment: ApiRef; quantity: number }[];
-  starting_equipment_options: Choice[];
-  feature: { name: string; desc: string[] };
-  personality_traits?: Choice;
-  ideals?: Choice;
-  bonds?: Choice;
-  flaws?: Choice;
-  starting_gold?: { quantity: number; unit: string };
-}
-
-export interface SrdFeature {
-  index: string;
-  name: string;
-  desc: string[];
-  level?: number;
-  class?: ApiRef;
-  subclass?: ApiRef;
-}
-
-export interface SrdProficiency {
-  index: string;
-  type: string;
-  name: string;
-  classes: ApiRef[];
-  races: ApiRef[];
-  reference?: ApiRef;
-}
-
-export interface SrdEquipment {
-  index: string;
-  name: string;
-  equipment_category: ApiRef;
-  gear_category?: ApiRef;
-  weapon_category?: string;
-  armor_category?: string;
-  cost?: { quantity: number; unit: string };
-  damage?: { damage_dice: string; damage_type: ApiRef };
-  range?: { normal: number; long?: number };
-  properties?: ApiRef[];
-  armor_class?: { base: number; dex_bonus: boolean; max_bonus?: number };
-  str_minimum?: number;
-  stealth_disadvantage?: boolean;
-  desc?: string[];
-  weight?: number;
-}
-
-export interface SrdLanguage {
-  index: string;
-  name: string;
-  type: string;
-  typical_speakers: string[];
-  script: string;
 }

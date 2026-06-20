@@ -1,14 +1,15 @@
 import styled from "styled-components";
 import {
+  ABILITY_ABBR,
   backgroundMap,
   backgrounds,
-  languages as allLanguages,
-  proficiencyMap,
-  skillMap,
+  featMap,
+  type AbilityKey,
 } from "@/data";
 import { useCharacter } from "@/store/characterStore";
 import { Grid, Pill, SelectCard, Divider } from "@/ui/primitives";
-import { StepIntro, FieldLabel, HelpText, Block, Chip, ChipRow, Counter } from "../common";
+import { StepIntro, FieldLabel, HelpText, Block, ChipRow } from "../common";
+import { FeatChoice } from "./FeatChoice";
 
 const CardTitle = styled.div`
   font-family: ${({ theme }) => theme.fonts.display};
@@ -16,7 +17,7 @@ const CardTitle = styled.div`
   color: ${({ theme }) => theme.colors.goldBright};
 `;
 
-const FeatureBox = styled.div`
+const FeatBox = styled.div`
   border-left: 3px solid ${({ theme }) => theme.colors.ember};
   padding-left: 0.9rem;
   margin-top: 0.4rem;
@@ -25,34 +26,49 @@ const FeatureBox = styled.div`
 export function BackgroundStep() {
   const { draft, update } = useCharacter();
   const bg = draft.backgroundIndex ? backgroundMap.get(draft.backgroundIndex) : undefined;
+  const feat = bg?.feat ? featMap.get(bg.feat.index) : undefined;
 
   const select = (index: string) =>
     update((d) => {
       d.backgroundIndex = index;
-      d.backgroundLanguageChoices = [];
+      d.backgroundAbilityChoices = {};
       d.backgroundEquipmentChoices = {};
+      d.originFeatChoices = {};
     });
 
-  const langCount = bg?.language_options?.choose ?? 0;
-  const toggleLang = (idx: string) =>
+  const toggleFeatChoice = (choiceIdx: number, option: string, choose: number) =>
     update((d) => {
-      d.backgroundLanguageChoices ??= [];
-      const i = d.backgroundLanguageChoices.indexOf(idx);
-      if (i >= 0) d.backgroundLanguageChoices.splice(i, 1);
-      else if (d.backgroundLanguageChoices.length < langCount)
-        d.backgroundLanguageChoices.push(idx);
+      d.originFeatChoices ??= {};
+      const arr = (d.originFeatChoices[choiceIdx] ??= []);
+      const i = arr.indexOf(option);
+      if (i >= 0) arr.splice(i, 1); // toggle the selected one off
+      else if (choose === 1) d.originFeatChoices[choiceIdx] = [option]; // radio: replace
+      else if (arr.length < choose) arr.push(option);
+      // Changing the spell-list class invalidates spell picks drawn from it.
+      const defs: any[] = (feat as any)?.choices ?? [];
+      if (defs[choiceIdx]?.type === "classes") {
+        defs.forEach((spec: any, di: number) => {
+          if (spec?.type === "spells" && spec?.spell_source?.from_class_choice)
+            d.originFeatChoices![di] = [];
+        });
+      }
     });
 
-  const bgSkills = (bg?.starting_proficiencies ?? [])
-    .map((p) => proficiencyMap.get(p.index)?.reference)
-    .filter((r) => r && skillMap.has(r.index));
+  // The class chosen in the feat's "spell list" pick (drives `spells` options).
+  const chosenClass = (() => {
+    const choices: any[] = (feat as any)?.choices ?? [];
+    const classChoiceIdx = choices.findIndex((c) => c?.type === "classes");
+    return classChoiceIdx >= 0
+      ? draft.originFeatChoices?.[classChoiceIdx]?.[0]
+      : undefined;
+  })();
 
   return (
     <>
       <StepIntro
-        eyebrow="Step IV"
+        eyebrow="Step III"
         title="Recall Your History"
-        desc="Where you came from grants proficiencies, languages, and a defining feature from your former life."
+        desc="Your background grants skill and tool proficiencies, ability boosts (assigned on the Abilities step), and an Origin Feat."
       />
 
       <Grid $min="240px">
@@ -65,9 +81,16 @@ export function BackgroundStep() {
           >
             <CardTitle>{b.name}</CardTitle>
             <ChipRow>
+              {b.ability_scores.map((a) => (
+                <Pill key={a.index} $tone="gold">
+                  {ABILITY_ABBR[a.index as AbilityKey] ?? a.name}
+                </Pill>
+              ))}
+            </ChipRow>
+            <ChipRow>
               {b.starting_proficiencies.map((p) => (
                 <Pill key={p.index} $tone="muted">
-                  {p.name.replace(/^Skill: /, "")}
+                  {p.name.replace(/^Skill: /, "").replace(/^Tool: /, "")}
                 </Pill>
               ))}
             </ChipRow>
@@ -79,48 +102,40 @@ export function BackgroundStep() {
         <>
           <Divider />
           <Block>
-            <FieldLabel>Granted Skill Proficiencies</FieldLabel>
+            <FieldLabel>Granted Proficiencies</FieldLabel>
             <ChipRow>
-              {bgSkills.map((r) => (
-                <Pill key={r!.index}>{r!.name}</Pill>
+              {bg.starting_proficiencies.map((p) => (
+                <Pill key={p.index}>{p.name}</Pill>
               ))}
             </ChipRow>
           </Block>
 
           <Block>
-            <FieldLabel>Feature — {bg.feature.name}</FieldLabel>
-            <FeatureBox>
-              {bg.feature.desc.map((d, i) => (
-                <HelpText key={i}>{d}</HelpText>
-              ))}
-            </FeatureBox>
+            <FieldLabel>Ability Boosts</FieldLabel>
+            <HelpText>
+              Assign +2/+1 (or +1/+1/+1) among{" "}
+              {bg.ability_scores.map((a) => a.name).join(", ")} on the Abilities step.
+            </HelpText>
           </Block>
 
-          {langCount > 0 && (
+          {feat && (
             <Block>
-              <FieldLabel>
-                Languages{" "}
-                <Counter $done={(draft.backgroundLanguageChoices?.length ?? 0) === langCount}>
-                  {draft.backgroundLanguageChoices?.length ?? 0}/{langCount}
-                </Counter>
-              </FieldLabel>
-              <ChipRow>
-                {allLanguages.map((l) => {
-                  const active = draft.backgroundLanguageChoices?.includes(l.index) ?? false;
-                  const locked =
-                    !active && (draft.backgroundLanguageChoices?.length ?? 0) >= langCount;
-                  return (
-                    <Chip
-                      key={l.index}
-                      $active={active}
-                      $locked={locked}
-                      onClick={() => !locked && toggleLang(l.index)}
-                    >
-                      {l.name}
-                    </Chip>
-                  );
-                })}
-              </ChipRow>
+              <FieldLabel>Origin Feat — {feat.name}</FieldLabel>
+              <FeatBox>
+                {feat.desc.map((d, i) => (
+                  <HelpText key={i}>{d}</HelpText>
+                ))}
+                {((feat as any).choices ?? []).map((c: any, i: number) => (
+                  <FeatChoice
+                    key={i}
+                    choice={c}
+                    idx={i}
+                    selected={draft.originFeatChoices?.[i] ?? []}
+                    onToggle={toggleFeatChoice}
+                    chosenClass={chosenClass}
+                  />
+                ))}
+              </FeatBox>
             </Block>
           )}
         </>

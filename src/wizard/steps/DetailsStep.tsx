@@ -1,6 +1,6 @@
 import styled from "styled-components";
 import { useCharacter } from "@/store/characterStore";
-import { StepIntro, FieldLabel, Block, TextInput, TextArea, Chip, ChipRow } from "../common";
+import { StepIntro, FieldLabel, Block, TextInput, TextArea } from "../common";
 
 const Two = styled.div`
   display: grid;
@@ -11,18 +11,6 @@ const Two = styled.div`
   }
 `;
 
-const ALIGNMENTS = [
-  "Lawful Good",
-  "Neutral Good",
-  "Chaotic Good",
-  "Lawful Neutral",
-  "True Neutral",
-  "Chaotic Neutral",
-  "Lawful Evil",
-  "Neutral Evil",
-  "Chaotic Evil",
-];
-
 export function DetailsStep() {
   const { draft, update } = useCharacter();
 
@@ -31,7 +19,7 @@ export function DetailsStep() {
       <StepIntro
         eyebrow="Step X"
         title="Define Your Persona"
-        desc="Give your hero a name, a moral compass, and the quirks that bring them to life at the table."
+        desc="Give your hero a name and the quirks that bring them to life at the table."
       />
 
       <Block>
@@ -41,21 +29,6 @@ export function DetailsStep() {
           placeholder="e.g. Aelar Moonwhisper"
           onChange={(e) => update((d) => (d.name = e.target.value))}
         />
-      </Block>
-
-      <Block>
-        <FieldLabel>Alignment</FieldLabel>
-        <ChipRow>
-          {ALIGNMENTS.map((a) => (
-            <Chip
-              key={a}
-              $active={draft.alignment === a}
-              onClick={() => update((d) => (d.alignment = d.alignment === a ? undefined : a))}
-            >
-              {a}
-            </Chip>
-          ))}
-        </ChipRow>
       </Block>
 
       <Two>

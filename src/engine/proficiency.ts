@@ -4,26 +4,114 @@ import {
   backgroundMap,
   classMap,
   languageMap,
+  proficiencies,
   proficiencyMap,
   raceMap,
   skillMap,
+  subraceMap,
+  traitMap,
   skills as allSkills,
   type AbilityKey,
 } from "@/data";
-import { EXPERTISE_GRANTS, RACE_FIXED_SKILLS } from "./config";
+import { EXPERTISE_GRANTS } from "./config";
+import { collectFeatGrants } from "./feats";
 import { abilityMods, finalAbilities } from "./abilities";
 import { proficiencyBonus } from "./progression";
+import type { Trait } from "@/data/types";
 import type { CharacterDraft, SkillRow } from "./types";
 
-/** Skill indexes the character is proficient in (from all sources, de-duplicated). */
-export function proficientSkillSet(draft: CharacterDraft): Set<string> {
+/** The resolved Trait entities of the chosen species + subspecies. */
+export function speciesTraitList(draft: CharacterDraft): Trait[] {
+  const out: Trait[] = [];
+  const refs = [
+    ...(draft.raceIndex ? raceMap.get(draft.raceIndex)?.traits ?? [] : []),
+    ...(draft.subraceIndex ? subraceMap.get(draft.subraceIndex)?.traits ?? [] : []),
+  ];
+  for (const ref of refs) {
+    const t = traitMap.get(ref.index);
+    if (t) out.push(t);
+  }
+  return out;
+}
+
+export interface TraitChoiceGroup {
+  choose: number;
+  options: { index: string; name: string }[];
+}
+
+// Full skill / tool proficiency option sets, used to expand a `resource_list`
+// trait choice ("a skill of your choice") that carries no enumerable options.
+const ALL_SKILL_OPTS = proficiencies
+  .filter((p) => p.type === "Skills")
+  .map((p) => ({ index: p.index, name: p.name }));
+const TRAIT_TOOL_TYPES = ["Artisan's Tools", "Musical Instruments", "Tools"];
+const ALL_TOOL_OPTS = proficiencies
+  .filter((p) => TRAIT_TOOL_TYPES.includes(p.type))
+  .map((p) => ({ index: p.index, name: p.name }));
+
+/** Expand one in-trait Choice to concrete options, resolving a `resource_list`
+ *  ("any skill"/"any tool") from the full skill/tool sets by what its URL references. */
+function expandTraitChoice(c: any): TraitChoiceGroup {
+  let options = (c?.from?.options ?? [])
+    .map((o: any) =>
+      o?.option_type === "reference" && o?.item
+        ? { index: o.item.index, name: o.item.name }
+        : o?.option_type === "string" && typeof o.string === "string"
+        ? { index: o.string, name: o.string }
+        : null
+    )
+    .filter((o: any): o is { index: string; name: string } => !!o);
+  if (options.length === 0 && c?.from?.option_set_type === "resource_list") {
+    const url: string = c.from.resource_list_url ?? "";
+    options = [
+      ...(/skill/i.test(url) ? ALL_SKILL_OPTS : []),
+      ...(/tool/i.test(url) ? ALL_TOOL_OPTS : []),
+    ];
+  }
+  return { choose: c?.choose ?? 1, options };
+}
+
+/**
+ * Every in-trait choice group a species trait offers: the subtrait variant pick
+ * (Draconic Ancestry) plus each proficiency choice — a trait may grant more than one
+ * (e.g. Warforged's separate skill and tool picks). Picks for all of a trait's groups
+ * share `speciesTraitChoices[trait.index]`; they partition cleanly because each
+ * group's options are disjoint (subtraits vs skills vs tools).
+ */
+export function speciesTraitChoiceGroups(trait: Trait): TraitChoiceGroup[] {
+  const groups: TraitChoiceGroup[] = [];
+  if (trait.trait_specific?.subtrait_options)
+    groups.push(expandTraitChoice(trait.trait_specific.subtrait_options));
+  for (const c of trait.proficiency_choices ?? []) groups.push(expandTraitChoice(c));
+  return groups;
+}
+
+/** Skill indexes a species trait grants outright or via the player's choice. */
+export function speciesGrantedSkills(draft: CharacterDraft): string[] {
+  const out: string[] = [];
+  const addProf = (idx?: string) => {
+    if (idx && idx.startsWith("skill-")) out.push(idx.replace(/^skill-/, ""));
+  };
+  for (const trait of speciesTraitList(draft)) {
+    for (const p of trait.proficiencies ?? []) addProf(p.index);
+    if (trait.proficiency_choices) {
+      for (const idx of draft.speciesTraitChoices?.[trait.index] ?? []) addProf(idx);
+    }
+  }
+  return out;
+}
+
+/**
+ * Skill proficiencies from every source *except* the proficiency-or-Expertise
+ * feats (Keen Mind, Observant). Those feats grant Expertise only when the skill is
+ * already proficient, so their own grant must be excluded when testing that — this
+ * is the set used for that test.
+ */
+function baseProficientSkillSet(draft: CharacterDraft): Set<string> {
   const set = new Set<string>();
 
-  // Race fixed + chosen.
-  if (draft.raceIndex) {
-    for (const s of RACE_FIXED_SKILLS[draft.raceIndex] ?? []) set.add(s);
-  }
-  for (const s of draft.raceSkillChoices ?? []) set.add(s);
+  // Species traits (fixed + chosen).
+  for (const s of speciesGrantedSkills(draft)) set.add(s);
 
   // Background.
   if (draft.backgroundIndex) {
@@ -40,11 +128,31 @@ export function proficientSkillSet(draft: CharacterDraft): Set<string> {
     for (const s of entry.skillChoices ?? []) set.add(s);
   }
 
+  // Unconditional feat-granted skill proficiencies (Skilled, Skill Expert, …).
+  for (const s of collectFeatGrants(draft).skills) set.add(s);
+
+  return set;
+}
+
+/** Skill indexes the character is proficient in (from all sources, de-duplicated). */
+export function proficientSkillSet(draft: CharacterDraft): Set<string> {
+  const set = baseProficientSkillSet(draft);
+  // Proficiency-or-Expertise feats always confer at least proficiency.
+  for (const s of collectFeatGrants(draft).conditionalExpertise) set.add(s);
   return set;
 }
 
 export function expertiseSkillSet(draft: CharacterDraft): Set<string> {
-  return new Set(draft.expertiseChoices ?? []);
+  const set = new Set(draft.expertiseChoices ?? []);
+  const grants = collectFeatGrants(draft);
+  for (const s of grants.expertise) set.add(s);
+  // Proficiency-or-Expertise feats grant Expertise only where the skill is already
+  // proficient from another source (their own grant is excluded from `base`).
+  if (grants.conditionalExpertise.size) {
+    const base = baseProficientSkillSet(draft);
+    for (const s of grants.conditionalExpertise) if (base.has(s)) set.add(s);
+  }
+  return set;
 }
 
 /** Total number of expertise picks available given current classes. */
@@ -112,15 +220,16 @@ export function computeSavingThrows(draft: CharacterDraft) {
 
 export function computeLanguages(draft: CharacterDraft): string[] {
   const set = new Set<string>();
-  set.add("Common");
-  const race = draft.raceIndex ? raceMap.get(draft.raceIndex) : undefined;
-  for (const l of race?.languages ?? []) set.add(l.name);
-  for (const idx of draft.raceLanguageChoices ?? []) {
-    set.add(languageMap.get(idx)?.name ?? idx);
+  set.add("Common"); // 2024: every PC knows Common.
+  // Bonus languages a species trait lets you choose.
+  for (const trait of speciesTraitList(draft)) {
+    if (!trait.language_options) continue;
+    for (const idx of draft.speciesTraitChoices?.[trait.index] ?? []) {
+      set.add(languageMap.get(idx)?.name ?? idx);
+    }
   }
-  for (const idx of draft.backgroundLanguageChoices ?? []) {
-    set.add(languageMap.get(idx)?.name ?? idx);
-  }
+  // 2024 backgrounds grant no language choices (languages moved to species
+  // traits / Common), so there's no background-language path to fold in here.
   return [...set].sort();
 }
 
@@ -162,6 +271,27 @@ export function computeOtherProficiencies(draft: CharacterDraft): {
         const p = proficiencyMap.get(idx);
         if (p) place(idx, p.name);
       }
+    }
+  }
+
+  // Feat-granted tool/instrument/kit proficiencies (Skilled, Crafter, Musician,
+  // Skill Expert, …). These are tools by construction, so add them directly rather
+  // than via `place` (whose type filter would drop kits typed "Other").
+  for (const idx of collectFeatGrants(draft).tools) {
+    const name = proficiencyMap.get(idx)?.name ?? idx;
+    tools.add(name.replace(/^(Tool|Skill): /, ""));
+  }
+
+  // Species-trait proficiency choices: skills are handled in computeSkills; the
+  // tool picks (e.g. Khoravar's Skill Versatility skill-or-tool) surface here.
+  // Added directly — they're tools by construction (a non-skill pick from a
+  // skill/tool choice), so we skip `place`'s type filter.
+  for (const trait of speciesTraitList(draft)) {
+    if (!trait.proficiency_choices) continue;
+    for (const idx of draft.speciesTraitChoices?.[trait.index] ?? []) {
+      if (idx.startsWith("skill-")) continue;
+      const name = proficiencyMap.get(idx)?.name ?? idx;
+      tools.add(name.replace(/^(Tool|Skill): /, ""));
     }
   }
 

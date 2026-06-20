@@ -1,4 +1,5 @@
 import { SKILL_ABILITY } from "@/data";
+import type { AbilityKey } from "@/data";
 import { ABILITY_COLORS } from "./abilityColors";
 
 // Minimalist line glyphs for each skill, drawn on a 24x24 grid.
@@ -81,6 +82,34 @@ export function SkillIcon({
       aria-hidden
     >
       {GLYPHS[index] ?? <circle cx="12" cy="12" r="7" />}
+    </svg>
+  );
+}
+
+// Shield-with-check glyph for saving throws — a save is a defensive roll, so a
+// warded shield reads naturally and matches the line-glyph style of SkillIcon.
+export function SaveIcon({
+  ability,
+  size = 22,
+}: {
+  ability: AbilityKey;
+  size?: number;
+}) {
+  const color = ABILITY_COLORS[ability] ?? "#f5c451";
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth={1.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z" />
+      <path d="M9 11.5l2 2 4-4" />
     </svg>
   );
 }

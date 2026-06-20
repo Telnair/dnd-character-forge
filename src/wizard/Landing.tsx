@@ -105,7 +105,7 @@ export function Landing() {
           rules-accurate character sheet.
         </Tagline>
         <Sub>
-          Built on the official 5e System Reference Document. Every class, multiclass, spell, and
+          Built on the 2024 Player's Handbook ruleset. Every class, multiclass, spell, and
           ability score enforced to the letter of the rules.
         </Sub>
         <Row>
@@ -130,7 +130,7 @@ export function Landing() {
         </Row>
         <Features>
           <span>12 Classes</span>
-          <span>9 Races</span>
+          <span>24 Species</span>
           <span>Multiclassing</span>
           <span>Spellcasting</span>
           <span>PDF & JSON Export</span>

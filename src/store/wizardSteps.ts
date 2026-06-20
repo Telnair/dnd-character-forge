@@ -6,11 +6,13 @@ export interface StepMeta {
   subtitle: string;
 }
 
+// 2024 order: Background precedes Abilities, because ability boosts come from
+// the chosen background.
 export const ALL_STEPS: StepMeta[] = [
-  { id: "race", title: "Origin", subtitle: "Race & Heritage" },
+  { id: "race", title: "Origin", subtitle: "Species & Heritage" },
   { id: "class", title: "Calling", subtitle: "Class" },
+  { id: "background", title: "History", subtitle: "Background & Origin Feat" },
   { id: "abilities", title: "Aptitude", subtitle: "Ability Scores" },
-  { id: "background", title: "History", subtitle: "Background" },
   { id: "skills", title: "Training", subtitle: "Skills & Proficiencies" },
   { id: "subclass", title: "Path", subtitle: "Subclass" },
   { id: "spells", title: "Arcana", subtitle: "Spells" },

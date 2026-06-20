@@ -114,25 +114,23 @@ export function spellsToChoose(
 ): { count: number; label: string } {
   const cfg = CLASS_CASTING[entry.classIndex];
   if (!cfg || cfg.caster === "none") return { count: 0, label: "" };
-  const mods = abilityMods(finalAbilities(draft));
-  const abilityMod = cfg.ability ? mods[cfg.ability] : 0;
   const row = classLevelRow(entry.classIndex, entry.level);
 
+  // Known / prepared counts come straight from the 2024 level data
+  // (`spells_known` is the per-level Prepared/Known column). This also encodes
+  // the half-caster offsets — 2024 paladins & rangers now cast from level 1,
+  // and a level with no spellcasting row simply yields 0.
   if (cfg.prep === "known") {
     return { count: row?.spells_known ?? 0, label: "Spells Known" };
   }
-  if (cfg.prep === "spellbook") {
-    // Wizard spellbook: 6 at level 1, +2 per wizard level after.
-    return { count: 6 + 2 * (entry.level - 1), label: "Spellbook" };
-  }
   if (cfg.prep === "prepared") {
-    const lvlContribution =
-      entry.classIndex === "paladin"
-        ? Math.floor(entry.level / 2)
-        : entry.level;
-    if (entry.classIndex === "paladin" && entry.level < 2)
-      return { count: 0, label: "Prepared" };
-    return { count: Math.max(1, lvlContribution + abilityMod), label: "Prepared" };
+    return { count: row?.spells_known ?? 0, label: "Prepared" };
+  }
+  if (cfg.prep === "spellbook") {
+    // Wizard is the exception: the picker chooses the *spellbook* (the spells
+    // you've scribed), which is larger than the prepared count the data carries.
+    // 2024 spellbook = 6 at level 1, +2 per wizard level after.
+    return { count: 6 + 2 * (entry.level - 1), label: "Spellbook" };
   }
   return { count: 0, label: "" };
 }

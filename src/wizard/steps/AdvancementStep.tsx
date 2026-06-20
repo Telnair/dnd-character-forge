@@ -2,6 +2,7 @@ import styled from "styled-components";
 import {
   ABILITY_ABBR,
   ABILITY_ORDER,
+  backgroundMap,
   classMap,
   classes as allClasses,
   feats as allFeats,
@@ -11,12 +12,73 @@ import {
   allAsiOpportunities,
   canMulticlass,
   finalAbilities,
+  multiclassProficiencies,
   totalLevel,
 } from "@/engine";
+import type { CharacterDraft } from "@/engine";
+
+/** Readable list of the proficiencies gained by multiclassing into a class. */
+function multiclassProfLabel(classIndex: string): string {
+  const profs = multiclassProficiencies(classIndex).map((p: any) =>
+    p.name.replace(/^(Tool|Skill): /, "")
+  );
+  return profs.length ? profs.join(", ") : "no extra proficiencies";
+}
 import { useCharacter } from "@/store/characterStore";
-import { Divider, GhostButton, Pill } from "@/ui/primitives";
+import { Divider, Pill, ScrollArea } from "@/ui/primitives";
+import { Tooltip } from "@/ui/Tooltip";
 import { StepIntro, FieldLabel, HelpText, Block } from "../common";
+import { FeatChoice } from "./FeatChoice";
 import { ClassIcon } from "@/assets/ClassIcon";
+
+/**
+ * Feats selectable in place of an ASI at a specific slot (`slotKey`): general AND
+ * origin feats (+ epic boons once level 19+), filtered by their prerequisites. In
+ * 2024 an Ability Score Improvement may be traded for any feat you qualify for, and
+ * origin feats carry no level prerequisite, so they're eligible too. A feat already
+ * held — granted by the background or chosen at another ASI slot — is withheld so it
+ * can't be taken twice, UNLESS the feat is Repeatable (Magic Initiate, Skilled, …),
+ * which may be taken any number of times. Level, ability-score, and other-feat gates
+ * are hard-enforced; spellcasting / proficiency / free-text gates are not (they can't
+ * be checked from data alone).
+ */
+function eligibleFeats(draft: CharacterDraft, total: number, slotKey: string) {
+  const finals = finalAbilities(draft);
+  const bgFeat = draft.backgroundIndex
+    ? backgroundMap.get(draft.backgroundIndex)?.feat?.index
+    : undefined;
+  // `heldAll` satisfies feat prerequisites; `heldElsewhere` (every slot but this
+  // one, plus the background feat) drives the no-duplicates rule.
+  const heldAll = new Set<string>();
+  const heldElsewhere = new Set<string>();
+  if (bgFeat) {
+    heldAll.add(bgFeat);
+    heldElsewhere.add(bgFeat);
+  }
+  for (const [key, choice] of Object.entries(draft.asiChoices ?? {})) {
+    if (choice.kind === "feat" && choice.featIndex) {
+      heldAll.add(choice.featIndex);
+      if (key !== slotKey) heldElsewhere.add(choice.featIndex);
+    }
+  }
+  return allFeats.filter((f: any) => {
+    if (f.index === "ability-score-improvement") return false; // the "Ability Improvement" toggle
+    if (f.type === "fighting-style") return false; // granted by class features
+    if (f.type === "epic-boon" && total < 19) return false;
+    if (!f.repeatable && heldElsewhere.has(f.index)) return false; // already taken
+    for (const p of (f.prerequisites ?? []) as any[]) {
+      if (p.type === "level" && total < (p.level ?? 0)) return false;
+      if (
+        p.type === "ability_score" &&
+        p.ability_score &&
+        finals[p.ability_score.index as AbilityKey] < (p.minimum_score ?? 0)
+      )
+        return false;
+      if (p.type === "feat" && p.feat && !heldAll.has(p.feat.index)) return false;
+    }
+    return true;
+  });
+}
 
 const ClassRow = styled.div`
   display: flex;
@@ -107,6 +169,12 @@ const MiniStep = styled.div`
   gap: 0.3rem;
 `;
 
+const FeatDesc = styled.div`
+  border-left: 3px solid ${({ theme }) => theme.colors.ember};
+  padding-left: 0.85rem;
+  margin: 0.6rem 0 0.2rem;
+`;
+
 const RemoveBtn = styled.button`
   display: inline-flex;
   align-items: center;
@@ -186,7 +254,47 @@ export function AdvancementStep() {
 
   const setAsiKind = (key: string, kind: "asi" | "feat") =>
     update((d) => {
-      d.asiChoices[key] = kind === "asi" ? { kind, increases: {} } : { kind, featIndex: allFeats[0]?.index };
+      d.asiChoices[key] =
+        kind === "asi"
+          ? { kind, increases: {} }
+          : { kind, featIndex: eligibleFeats(d, total, key)[0]?.index, featChoices: {} };
+    });
+
+  const setFeat = (key: string, featIndex: string) =>
+    update((d) => {
+      const c = d.asiChoices[key];
+      if (c) {
+        c.featIndex = featIndex;
+        c.featChoices = {};
+      }
+    });
+
+  const toggleFeatChoice = (
+    key: string,
+    choiceIdx: number,
+    option: string,
+    choose: number
+  ) =>
+    update((d) => {
+      const c = d.asiChoices[key];
+      if (!c) return;
+      c.featChoices ??= {};
+      const arr = (c.featChoices[choiceIdx] ??= []);
+      const i = arr.indexOf(option);
+      if (i >= 0) arr.splice(i, 1); // toggle the selected one off
+      else if (choose === 1) c.featChoices[choiceIdx] = [option]; // radio: replace
+      else if (arr.length < choose) arr.push(option);
+      // Changing the spell-list class invalidates spell picks drawn from it.
+      const feat: any = c.featIndex
+        ? allFeats.find((f) => f.index === c.featIndex)
+        : undefined;
+      const defs: any[] = feat?.choices ?? [];
+      if (defs[choiceIdx]?.type === "classes") {
+        defs.forEach((spec: any, di: number) => {
+          if (spec?.type === "spells" && spec?.spell_source?.from_class_choice)
+            c.featChoices![di] = [];
+        });
+      }
     });
 
   const adjustAsi = (key: string, ability: AbilityKey, delta: number) =>
@@ -224,13 +332,18 @@ export function AdvancementStep() {
                   {cls?.name} {entry.isPrimary && <Pill $tone="gold">Primary</Pill>}
                 </div>
                 {!entry.isPrimary && (
-                  <RemoveBtn
-                    onClick={() => removeClass(entry.classIndex)}
-                    aria-label="Remove class"
-                    title="Remove"
-                  >
-                    <TrashIcon />
-                  </RemoveBtn>
+                  <>
+                    <HelpText style={{ fontSize: "0.78rem", margin: "0.15rem 0 0" }}>
+                      Multiclass proficiencies: {multiclassProfLabel(entry.classIndex)}
+                    </HelpText>
+                    <RemoveBtn
+                      onClick={() => removeClass(entry.classIndex)}
+                      aria-label="Remove class"
+                      title="Remove"
+                    >
+                      <TrashIcon />
+                    </RemoveBtn>
+                  </>
                 )}
               </div>
               <Stepper>
@@ -266,7 +379,11 @@ export function AdvancementStep() {
                   key={c.index}
                   $ok={ok}
                   onClick={() => addClass(c.index)}
-                  title={check.ok ? "" : check.reasons.join("; ")}
+                  title={
+                    check.ok
+                      ? `Gain: ${multiclassProfLabel(c.index)}`
+                      : check.reasons.join("; ")
+                  }
                 >
                   + {c.name}
                   {!check.ok && <span style={{ fontSize: "0.75rem" }}>🔒</span>}
@@ -283,6 +400,7 @@ export function AdvancementStep() {
           {opportunities.map((opp) => {
             const choice = draft.asiChoices[opp.key];
             const cls = classMap.get(opp.classIndex);
+            const featChoices = eligibleFeats(draft, total, opp.key);
             return (
               <AsiCard key={opp.key}>
                 <div style={{ display: "flex", gap: "0.6rem", alignItems: "center", marginBottom: "0.5rem" }}>
@@ -328,22 +446,61 @@ export function AdvancementStep() {
                 )}
 
                 {choice?.kind === "feat" && (
-                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                    {allFeats.map((f) => (
-                      <Toggle
-                        key={f.index}
-                        $active={choice.featIndex === f.index}
-                        onClick={() =>
-                          update((d) => {
-                            const c = d.asiChoices[opp.key];
-                            if (c) c.featIndex = f.index;
-                          })
-                        }
-                      >
-                        {f.name}
-                      </Toggle>
-                    ))}
-                  </div>
+                  <>
+                    <ScrollArea $max="200px">
+                      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                        {featChoices.map((f) => (
+                          <Tooltip key={f.index} title={f.name} content={f.desc?.join("\n\n")}>
+                            <Toggle
+                              $active={choice.featIndex === f.index}
+                              onClick={() => setFeat(opp.key, f.index)}
+                            >
+                              {f.name}
+                            </Toggle>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                    {(() => {
+                      const feat: any = choice.featIndex
+                        ? allFeats.find((f) => f.index === choice.featIndex)
+                        : undefined;
+                      if (!feat) return null;
+                      const defs: any[] = feat.choices ?? [];
+                      // A feat's `spells` picks resolve against the class chosen in
+                      // its own `classes` choice (Magic Initiate); resolve it here.
+                      const classChoiceIdx = defs.findIndex((c) => c?.type === "classes");
+                      const chosenClass =
+                        classChoiceIdx >= 0
+                          ? choice.featChoices?.[classChoiceIdx]?.[0]
+                          : undefined;
+                      return (
+                        <>
+                          {feat.desc?.length > 0 && (
+                            <FeatDesc>
+                              {feat.desc.map((p: string, i: number) => (
+                                <HelpText key={i} style={{ margin: "0.25rem 0" }}>
+                                  {p}
+                                </HelpText>
+                              ))}
+                            </FeatDesc>
+                          )}
+                          {defs.map((c: any, i: number) => (
+                            <FeatChoice
+                              key={i}
+                              choice={c}
+                              idx={i}
+                              selected={choice.featChoices?.[i] ?? []}
+                              onToggle={(ci, option, ch) =>
+                                toggleFeatChoice(opp.key, ci, option, ch)
+                              }
+                              chosenClass={chosenClass}
+                            />
+                          ))}
+                        </>
+                      );
+                    })()}
+                  </>
                 )}
               </AsiCard>
             );

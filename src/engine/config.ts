@@ -130,21 +130,51 @@ export const PACT_MAGIC: { slotLevel: number; slots: number }[] = [
   { slotLevel: 5, slots: 4 },
 ];
 
-/** Fixed skill proficiencies granted by a race (from racial traits). */
-export const RACE_FIXED_SKILLS: Record<string, string[]> = {
-  elf: ["perception"],
-  "half-orc": ["intimidation"],
+/**
+ * 2024 Weapon Mastery: how many weapons a class lets you use the Mastery
+ * property of, at level 1. Only the Fighter's count scales with level (see
+ * weaponMasteriesForClass); the others stay flat. A multiclass character uses
+ * their best-granting class, so the derived count is the max across classes
+ * (see engine/derive.ts).
+ */
+export const WEAPON_MASTERY_BY_CLASS: Record<string, number> = {
+  barbarian: 2,
+  fighter: 3,
+  paladin: 2,
+  ranger: 2,
+  rogue: 2,
 };
 
-/** Number of free skill proficiencies a race lets you choose. */
-export const RACE_FREE_SKILLS: Record<string, number> = {
-  "half-elf": 2,
-};
+/**
+ * Weapon-mastery count for a single class at a given level. Only the Fighter
+ * scales: 3 (1–3) → 4 (4–9) → 5 (10–15) → 6 (16+). Every other granting class
+ * keeps its flat level-1 value.
+ */
+export function weaponMasteriesForClass(classIndex: string, level: number): number {
+  const base = WEAPON_MASTERY_BY_CLASS[classIndex] ?? 0;
+  if (base === 0) return 0;
+  if (classIndex === "fighter") {
+    if (level >= 16) return 6;
+    if (level >= 10) return 5;
+    if (level >= 4) return 4;
+    return 3;
+  }
+  return base;
+}
 
-/** Number of bonus languages a race lets you choose. */
-export const RACE_FREE_LANGUAGES: Record<string, number> = {
-  human: 1,
-  "half-elf": 1,
+/** The 8 PHB 2024 weapon-mastery properties (the dataset carries no descriptions). */
+export const WEAPON_MASTERY_DESC: Record<string, string> = {
+  cleave:
+    "On a hit, make a melee attack against a second creature within 5 feet of the first and within reach; on a hit it takes the weapon's damage (no ability modifier). Once per turn.",
+  graze:
+    "If your attack roll misses, the target takes damage equal to the ability modifier used for the attack (the weapon's damage type).",
+  nick: "When you make the extra attack of the Light property, you can do so as part of the Attack action instead of as a Bonus Action (once per turn).",
+  push: "On a hit, you can push the target up to 10 feet straight away from you if it is Large or smaller.",
+  sap: "On a hit, the target has Disadvantage on its next attack roll before the start of your next turn.",
+  slow: "On a hit that deals damage, reduce the target's Speed by 10 feet until the start of your next turn.",
+  topple:
+    "On a hit, force a Constitution save (DC 8 + ability mod + proficiency) or the target has the Prone condition.",
+  vex: "On a hit that deals damage, you have Advantage on your next attack roll against that target before the end of your next turn.",
 };
 
 /** Expertise grants: skills you may double proficiency on, by class+level. */
@@ -155,18 +185,6 @@ export const EXPERTISE_GRANTS: { classIndex: string; level: number; count: numbe
   { classIndex: "bard", level: 10, count: 2 },
 ];
 
-/** Multiclass proficiencies are limited; encoded as readable notes per class. */
-export const MULTICLASS_PROF_NOTES: Record<string, string> = {
-  barbarian: "Shields, simple weapons, martial weapons",
-  bard: "Light armor, one skill of your choice, one musical instrument",
-  cleric: "Light armor, medium armor, shields",
-  druid: "Light armor, medium armor, shields (non-metal only)",
-  fighter: "Light armor, medium armor, shields, simple & martial weapons",
-  monk: "Simple weapons, shortswords",
-  paladin: "Light armor, medium armor, shields, simple & martial weapons",
-  ranger: "Light armor, medium armor, shields, simple & martial weapons, one skill",
-  rogue: "Light armor, one skill, thieves' tools",
-  sorcerer: "—",
-  warlock: "Light armor, simple weapons",
-  wizard: "—",
-};
+// Multiclass proficiency grants are derived from the 2024 class data's
+// `multi_classing.proficiencies` (see engine/multiclass.ts → multiclassProficiencies),
+// not hand-maintained here — the per-class lists live in the dataset.

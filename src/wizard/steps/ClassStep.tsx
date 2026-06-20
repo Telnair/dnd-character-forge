@@ -58,7 +58,9 @@ export function ClassStep() {
     });
 
   const level1Features = cls
-    ? cls.levels.find((l) => l.level === 1)?.features.filter((f) => !/ability-score/.test(f.index)) ?? []
+    ? (cls.levels.find((l) => l.level === 1)?.features ?? []).filter(
+        (f) => !/ability-score/.test(f.index) && !/-subclass$/.test(f.index)
+      )
     : [];
 
   return (
