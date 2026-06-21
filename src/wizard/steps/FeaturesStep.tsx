@@ -5,10 +5,15 @@ import { Divider } from "@/ui/primitives";
 import { FeatureTooltip } from "@/ui/FeatureCard";
 import { StepIntro, FieldLabel, HelpText, Block, Chip, ChipRow, Counter } from "../common";
 
-function helpFor(kind: "invocation" | "subfeature"): string {
-  return kind === "invocation"
-    ? "Your Pact Boon (Pact of the Blade, Chain, or Tome) is itself an invocation — pick one. Locked options need a higher Warlock level or a prerequisite invocation; hover to see why."
-    : "Hover an option for its full description. Locked options require a higher level.";
+function helpFor(kind: "invocation" | "subfeature" | "benefit"): string {
+  switch (kind) {
+    case "invocation":
+      return "Your Pact Boon (Pact of the Blade, Chain, or Tome) is itself an invocation — pick one. Locked options need a higher Warlock level or a prerequisite invocation; hover to see why.";
+    case "benefit":
+      return "Optional — this benefit is chosen anew each time you use the feature. Record a preferred choice to show on your sheet; you can change it freely in play.";
+    default:
+      return "Hover an option for its full description. Locked options require a higher level.";
+  }
 }
 
 export function FeaturesStep() {
@@ -53,8 +58,8 @@ export function FeaturesStep() {
             <Divider />
             <FieldLabel>
               {spec.className} — {spec.featureName}{" "}
-              <Counter $done={count === spec.choose}>
-                {count}/{spec.choose}
+              <Counter $done={spec.optional || count === spec.choose}>
+                {spec.optional ? `${count}/${spec.choose} · optional` : `${count}/${spec.choose}`}
               </Counter>
             </FieldLabel>
             <HelpText>{helpFor(spec.kind)}</HelpText>
@@ -70,6 +75,8 @@ export function FeaturesStep() {
                       name: o.name,
                       source: o.available ? spec.featureName : (o.reason ?? ""),
                       desc: o.desc,
+                      activation: o.activation,
+                      recharge: o.recharge,
                     }}
                   >
                     <Chip

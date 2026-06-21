@@ -3,6 +3,20 @@ import styled from "styled-components";
 import { spellMap } from "@/data";
 import type { SrdSpell } from "@/data/types";
 import { Tooltip } from "./Tooltip";
+import { CostIcon, COST_LABEL, type SlotKind } from "./CostIcon";
+
+/**
+ * How THIS character casts a spell — the pinned footer on the card.
+ * `castTime` overrides the spell's own casting time (e.g. a feature that casts it
+ * as a Reaction); falls back to the spell's `casting_time`. `notes` are the free
+ * cadence / recharge facets ("At will", "1 / Long Rest", "Always prepared"); only
+ * include "At will" when there is NO `cost`. `cost` is the resource spent.
+ */
+export interface SpellAccess {
+  castTime?: string;
+  notes?: string[];
+  cost?: SlotKind;
+}
 
 // Damage-type accent colors (keyed by the SRD damage-type index). Mirrors the
 // BG3 convention of tinting each element so the type reads at a glance.
@@ -61,7 +75,8 @@ const Card = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  padding: 0.7rem 0.8rem;
+  /* no bottom padding — the sticky Access footer provides it and sits flush */
+  padding: 0.7rem 0.8rem 0;
   min-width: 240px;
   max-width: 340px;
 `;
@@ -155,6 +170,57 @@ const Material = styled.div`
   line-height: 1.35;
 `;
 
+// "How this character casts it" — cast time + cadence + resource cost, distinct
+// per spell. Pinned as a footer strip spanning the card's full width (cancels the
+// card's padding), set off by a rule. Fed by the call site (the same spell can be
+// at-will from one feature, slot-cast normally).
+const Access = styled.div`
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.4rem;
+  margin: 0.1rem -0.8rem 0;
+  padding: 0.5rem 0.8rem;
+  border-top: 1px solid ${({ theme }) => theme.colors.borderStrong};
+  /* opaque so scrolled content passes behind it, not through it */
+  background: #1b150f;
+  box-shadow: 0 -7px 10px -7px rgba(0, 0, 0, 0.6);
+`;
+
+const AccessLabel = styled.span`
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: ${({ theme }) => theme.colors.textDim};
+  margin-right: 0.05rem;
+`;
+
+const AccessPill = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 0.86rem;
+  letter-spacing: 0.02em;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  color: ${({ theme }) => theme.colors.text};
+  background: rgba(0, 0, 0, 0.3);
+`;
+
+// The resource cost — the emphasised, always-last facet (gold + icon).
+const CostPill = styled(AccessPill)`
+  border-color: ${({ theme }) => `${theme.colors.goldBright}66`};
+  color: ${({ theme }) => theme.colors.goldBright};
+  background: rgba(245, 196, 81, 0.12);
+`;
+
 export const SpellInfoButton = styled.button`
   width: 1.35rem;
   height: 1.35rem;
@@ -191,7 +257,7 @@ function MetaRow({ label, value }: { label: string; value?: ReactNode }) {
  * save, casting time, duration, components and concentration/ritual flags.
  * Pure — pass it an `SrdSpell`. For a hover trigger use {@link SpellTooltip}.
  */
-export function SpellCard({ spell }: { spell: SrdSpell }) {
+export function SpellCard({ spell, access }: { spell: SrdSpell; access?: SpellAccess }) {
   const dmgType = spell.damage?.damage_type;
   const dmgDice =
     baseDice(spell.damage?.damage_at_slot_level, spell.level) ??
@@ -229,7 +295,6 @@ export function SpellCard({ spell }: { spell: SrdSpell }) {
         <MetaRow label="Range" value={spell.range} />
         <MetaRow label="Target" value={attackOrSave(spell)} />
         <MetaRow label="Area" value={area} />
-        <MetaRow label="Casting" value={castingTime(spell.casting_time)} />
         <MetaRow label="Duration" value={spell.duration} />
         <MetaRow label="Components" value={spell.components?.join(", ")} />
       </Meta>
@@ -242,6 +307,20 @@ export function SpellCard({ spell }: { spell: SrdSpell }) {
           {spell.ritual && <Badge $tone="ember">Ritual</Badge>}
         </Badges>
       )}
+
+      <Access>
+        <AccessLabel>Cast</AccessLabel>
+        <AccessPill>{access?.castTime ?? castingTime(spell.casting_time)}</AccessPill>
+        {access?.notes?.map((n, i) => (
+          <AccessPill key={i}>{n}</AccessPill>
+        ))}
+        {access?.cost && (
+          <CostPill>
+            <CostIcon token={access.cost} size={13} />
+            {COST_LABEL[access.cost]}
+          </CostPill>
+        )}
+      </Access>
     </Card>
   );
 }
@@ -254,12 +333,15 @@ export function SpellCard({ spell }: { spell: SrdSpell }) {
 export function SpellTooltip({
   spell,
   index,
+  access,
   block,
   trigger = "hover",
   children,
 }: {
   spell?: SrdSpell;
   index?: string;
+  /** "How this character casts it" — the pinned footer (cast time / cadence / cost). */
+  access?: SpellAccess;
   block?: boolean;
   trigger?: "hover" | "click";
   children: ReactNode;
@@ -267,8 +349,16 @@ export function SpellTooltip({
   const resolved = spell ?? (index ? spellMap.get(index) : undefined);
   if (!resolved) return <>{children}</>;
   return (
-    <Tooltip content={<SpellCard spell={resolved} />} block={block} trigger={trigger}>
+    <Tooltip content={<SpellCard spell={resolved} access={access} />} block={block} trigger={trigger}>
       {children}
     </Tooltip>
   );
+}
+
+/** Default cast economy from the spell's level alone: cantrips are at-will,
+ *  leveled spells cost a spell slot (a Pact slot when `pact`, i.e. a Warlock's).
+ *  Call sites with grant context override this. */
+export function slotAccess(index: string, pact = false): SpellAccess {
+  if ((spellMap.get(index)?.level ?? 0) === 0) return { notes: ["At will"] };
+  return { cost: pact ? "pact_slot" : "spell_slot" };
 }

@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { spellMap, spells, spellsForClass } from "@/data";
 import { ScrollArea } from "@/ui/primitives";
-import { SpellTooltip } from "@/ui/SpellCard";
+import { SpellTooltip, slotAccess } from "@/ui/SpellCard";
 import { Block, FieldLabel, HelpText, Chip, ChipRow, Counter } from "../common";
 
 /** Concrete reference options of a feat choice (classes, abilities, proficiencies). */
@@ -120,7 +120,7 @@ export function FeatChoice({
               // Spell options get a hover box with the spell's description, like
               // the main spell picker; other option kinds just show the chip.
               return isSpellPick ? (
-                <SpellTooltip key={o.index} index={o.index}>
+                <SpellTooltip key={o.index} index={o.index} access={slotAccess(o.index)}>
                   {chip}
                 </SpellTooltip>
               ) : (

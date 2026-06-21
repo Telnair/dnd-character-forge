@@ -42,6 +42,10 @@ export interface FeatureOptionView {
   index: string;
   name: string;
   desc: string[];
+  /** Activation/recharge of the option's own Feature record (invocations,
+   *  maneuvers); absent for feats and for inline benefit-menu options. */
+  activation?: FeatureT["activation"];
+  recharge?: FeatureT["recharge"];
   /** Whether the option's prerequisites are met at the current level + picks. */
   available: boolean;
   /** Why it's locked (e.g. "Requires level 5"), when `available` is false. */
@@ -58,7 +62,10 @@ export interface FeatureChoiceSpec {
   className: string;
   /** How many options to pick at the current level. */
   choose: number;
-  kind: "invocation" | "subfeature";
+  kind: "invocation" | "subfeature" | "benefit";
+  /** A "benefit" choice is per-activation (chosen fresh each use), so recording a
+   *  pick here is a convenience and does NOT block the step. */
+  optional?: boolean;
   options: FeatureOptionView[];
   /** Stored picks that still exist as options of this choice. */
   selected: string[];
@@ -78,6 +85,8 @@ function resolveOption(index: string): {
   name: string;
   desc: string[];
   prerequisites: FeaturePrereq[];
+  activation?: FeatureT["activation"];
+  recharge?: FeatureT["recharge"];
 } {
   const f = featureMap.get(index);
   if (f) {
@@ -85,6 +94,8 @@ function resolveOption(index: string): {
       name: f.name,
       desc: f.desc ?? [],
       prerequisites: (f.prerequisites ?? []) as FeaturePrereq[],
+      activation: f.activation,
+      recharge: f.recharge,
     };
   }
   const ft = featMap.get(index);
@@ -193,6 +204,35 @@ function specForFeature(
   if (!fs) return null;
 
   const stored = draft.featureChoices?.[feature.index] ?? [];
+
+  // benefit_options: a per-activation "choose one of the following benefits" menu
+  // (The Third Eye, Wild Heart rage forms, Elemental Smite, …). The pick is made
+  // fresh each time the feature is used, so we surface it as an OPTIONAL picker
+  // (record your preferred benefit) that never blocks the step. The benefits are
+  // inline data, not Feature records, so they're built directly with synthetic keys.
+  if (fs.benefit_options) {
+    const bo = fs.benefit_options;
+    const options: FeatureOptionView[] = bo.benefits.map((b, i) => ({
+      index: `${feature.index}::benefit::${i}`,
+      name: b.name,
+      desc: b.type === "spell" ? [b.desc ?? `Cast ${b.spell.name}.`] : [b.desc],
+      available: true,
+      selected: stored.includes(`${feature.index}::benefit::${i}`),
+    }));
+    return {
+      key: feature.index,
+      featureIndex: feature.index,
+      featureName: shortName(feature.name),
+      classIndex: entry.classIndex,
+      className: classMap.get(entry.classIndex)?.name ?? entry.classIndex,
+      choose: bo.choose,
+      kind: "benefit",
+      optional: true,
+      options,
+      selected: stored.filter((s) => options.some((o) => o.index === s)),
+    };
+  }
+
   const column = COUNT_COLUMN[feature.index];
 
   let kind: "invocation" | "subfeature";
@@ -234,6 +274,8 @@ function specForFeature(
       index,
       name: shortName(ent.name),
       desc: ent.desc,
+      activation: ent.activation,
+      recharge: ent.recharge,
       available: reason == null,
       reason: reason ?? undefined,
       selected: stored.includes(index),
@@ -286,9 +328,11 @@ export function featureChoiceSpecs(draft: CharacterDraft): FeatureChoiceSpec[] {
   // (the first choice to hold it, in grant order, keeps ownership).
   const owner = new Map<string, string>();
   for (const s of specs) {
+    if (s.kind === "benefit") continue; // per-activation menus don't share a pool
     for (const sel of s.selected) if (!owner.has(sel)) owner.set(sel, s.key);
   }
   for (const s of specs) {
+    if (s.kind === "benefit") continue;
     for (const o of s.options) {
       const own = owner.get(o.index);
       if (own && own !== s.key && o.available) {
@@ -328,6 +372,7 @@ export function normalizeFeatureChoices(draft: CharacterDraft): void {
 export function validateFeatures(draft: CharacterDraft): string[] {
   const issues: string[] = [];
   for (const spec of featureChoiceSpecs(draft)) {
+    if (spec.optional) continue; // benefit menus are per-activation; never required
     const valid = spec.selected.filter((s) =>
       spec.options.some((o) => o.index === s && o.available)
     );

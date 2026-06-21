@@ -1,6 +1,48 @@
 import type { ReactNode } from "react";
 import styled from "styled-components";
+import type { Feature } from "@/data/types";
 import { Tooltip } from "./Tooltip";
+import { CostIcon, COST_LABEL, type CostToken } from "./CostIcon";
+
+type Activation = NonNullable<Feature["activation"]>;
+type Recharge = NonNullable<Feature["recharge"]>;
+
+export const ACTION_LABEL: Record<Activation["action_type"], string> = {
+  action: "Action",
+  bonus_action: "Bonus Action",
+  reaction: "Reaction",
+  free_action: "Free Action",
+  special: "Special",
+};
+
+export const RECHARGE_LABEL: Record<Recharge["condition"], string> = {
+  short_rest: "Short Rest",
+  long_rest: "Long Rest",
+  short_or_long_rest: "Short/Long Rest",
+  dawn: "Dawn",
+  turn: "Turn",
+};
+
+export { COST_LABEL };
+
+type Pill = { key: string; tone: "action" | "cost" | "recharge"; text: string; icon?: CostToken };
+
+/** Activation / cost / recharge readout pills for a feature, in display order. */
+function metaPills(feature: FeatureLike): Pill[] {
+  const pills: Pill[] = [];
+  const a = feature.activation;
+  if (a) {
+    pills.push({ key: "act", tone: "action", text: ACTION_LABEL[a.action_type] });
+    if (a.cost) pills.push({ key: "cost", tone: "cost", text: COST_LABEL[a.cost], icon: a.cost });
+  }
+  const r = feature.recharge;
+  if (r) {
+    const window = RECHARGE_LABEL[r.condition];
+    const text = r.uses != null ? `${r.uses} / ${window}` : window;
+    pills.push({ key: "rch", tone: "recharge", text: `↻ ${text}` });
+  }
+  return pills;
+}
 
 const Card = styled.div`
   display: flex;
@@ -35,6 +77,29 @@ const Desc = styled.p`
   white-space: pre-wrap;
 `;
 
+const MetaRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+`;
+
+const MetaPill = styled.span<{ $tone: "action" | "cost" | "recharge" }>`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  padding: 0.06rem 0.45rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  border: 1px solid ${({ theme }) => theme.colors.borderStrong};
+  color: ${({ theme, $tone }) =>
+    $tone === "action" ? theme.colors.goldBright : theme.colors.textDim};
+  background: ${({ $tone }) =>
+    $tone === "action" ? "rgba(245, 196, 81, 0.12)" : "rgba(0, 0, 0, 0.28)"};
+`;
+
 export const InfoButton = styled.button`
   flex: 0 0 auto;
   width: 1.15rem;
@@ -60,6 +125,10 @@ export interface FeatureLike {
   name: string;
   source: string;
   desc: string[];
+  /** How the feature is activated (action type + optional resource cost); absent for passive features. */
+  activation?: Feature["activation"];
+  /** When the feature's uses reset; absent for unlimited-use features. */
+  recharge?: Feature["recharge"];
 }
 
 /**
@@ -68,12 +137,23 @@ export interface FeatureLike {
  * {@link SpellCard}. For a hover trigger use {@link FeatureTooltip}.
  */
 export function FeatureCard({ feature }: { feature: FeatureLike }) {
+  const pills = metaPills(feature);
   return (
     <Card>
       <div>
         <Name>{feature.name}</Name>
         {feature.source && <SubLine>{feature.source}</SubLine>}
       </div>
+      {pills.length > 0 && (
+        <MetaRow>
+          {pills.map((p) => (
+            <MetaPill key={p.key} $tone={p.tone}>
+              {p.icon && <CostIcon token={p.icon} size={12} />}
+              {p.text}
+            </MetaPill>
+          ))}
+        </MetaRow>
+      )}
       {feature.desc.length > 0 && <Desc>{feature.desc.join("\n\n")}</Desc>}
     </Card>
   );
@@ -95,7 +175,8 @@ export function FeatureTooltip({
   trigger?: "hover" | "click";
   children: ReactNode;
 }) {
-  if (!feature.desc?.length && !feature.source) return <>{children}</>;
+  if (!feature.desc?.length && !feature.source && !feature.activation && !feature.recharge)
+    return <>{children}</>;
   return (
     <Tooltip content={<FeatureCard feature={feature} />} block={block} trigger={trigger}>
       {children}

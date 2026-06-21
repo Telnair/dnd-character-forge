@@ -157,7 +157,11 @@ function SpellPicker({
                 <SpellPill $tone="arcane">{s.school.name}</SpellPill>
               </PillRow>
               <InfoAnchor>
-                <SpellTooltip spell={s} trigger="click">
+                <SpellTooltip
+                  spell={s}
+                  trigger="click"
+                  access={s.level === 0 ? { notes: ["At will"] } : { cost: "spell_slot" }}
+                >
                   <SpellInfoButton
                     type="button"
                     aria-label={`View details for ${s.name}`}

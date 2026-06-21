@@ -272,7 +272,11 @@ function computeFeatureSpells(draft: CharacterDraft): DerivedSheet["featureSpell
     out.push({
       featureName: feature.name.replace(/^Eldritch Invocation:\s*/, ""),
       source: classMap.get(classIndex)?.name ?? classIndex,
+      classIndex,
       ability: sc.ability?.name ?? (fallback ? ABILITY_ABBR[fallback as AbilityKey] : undefined),
+      featureDesc: feature.desc,
+      activation: feature.activation,
+      recharge: feature.recharge,
       spells: sc.spells.map((g) => ({
         index: g.spell.index,
         name: g.spell.name,
@@ -368,7 +372,14 @@ export function deriveSheet(draft: CharacterDraft): DerivedSheet {
   for (const spec of featureChoiceSpecs(draft)) {
     for (const optIndex of spec.selected) {
       const opt = spec.options.find((o) => o.index === optIndex);
-      if (opt) features.push({ name: opt.name, source: `${spec.className} · ${spec.featureName}`, desc: opt.desc });
+      if (opt)
+        features.push({
+          name: opt.name,
+          source: `${spec.className} · ${spec.featureName}`,
+          desc: opt.desc,
+          activation: opt.activation,
+          recharge: opt.recharge,
+        });
     }
   }
 

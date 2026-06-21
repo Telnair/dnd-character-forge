@@ -28,6 +28,7 @@ export interface FeatGrants {
    */
   spells: {
     featName: string;
+    featDesc?: string[];
     spells: { index: string; name: string }[];
     notes: string[];
   }[];
@@ -113,7 +114,12 @@ export function collectFeatGrants(draft: CharacterDraft): FeatGrants {
       }
     }
     if (spellPicks.length || spellNotes.length)
-      grants.spells.push({ featName: feat.name, spells: spellPicks, notes: spellNotes });
+      grants.spells.push({
+        featName: feat.name,
+        featDesc: (feat.desc as string[] | undefined) ?? [],
+        spells: spellPicks,
+        notes: spellNotes,
+      });
   }
 
   return grants;

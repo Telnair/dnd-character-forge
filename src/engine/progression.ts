@@ -41,11 +41,17 @@ export function subclassUnlockedFor(entry: ClassEntry): boolean {
 }
 
 /** Collect all class + subclass features granted up to the entry's level. */
-export function featuresForEntry(
-  entry: ClassEntry
-): { name: string; source: string; desc: string[] }[] {
+type SheetFeature = {
+  name: string;
+  source: string;
+  desc: string[];
+  activation?: NonNullable<ReturnType<typeof featureMap.get>>["activation"];
+  recharge?: NonNullable<ReturnType<typeof featureMap.get>>["recharge"];
+};
+
+export function featuresForEntry(entry: ClassEntry): SheetFeature[] {
   const cls = classMap.get(entry.classIndex);
-  const out: { name: string; source: string; desc: string[] }[] = [];
+  const out: SheetFeature[] = [];
   if (!cls) return out;
 
   for (const lvl of cls.levels) {
@@ -61,6 +67,8 @@ export function featuresForEntry(
         name: ref.name,
         source: `${cls.name} ${lvl.level}`,
         desc: feature?.desc ?? [],
+        activation: feature?.activation,
+        recharge: feature?.recharge,
       });
     }
   }
@@ -76,6 +84,8 @@ export function featuresForEntry(
             name: ref.name,
             source: `${sub.name} ${lvl.level}`,
             desc: feature?.desc ?? [],
+            activation: feature?.activation,
+            recharge: feature?.recharge,
           });
         }
       }

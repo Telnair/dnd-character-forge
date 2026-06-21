@@ -1,4 +1,5 @@
 import type { AbilityKey } from "@/data";
+import type { Feature } from "@/data/types";
 
 export type AbilityScores = Record<AbilityKey, number>;
 
@@ -156,7 +157,13 @@ export interface DerivedSheet {
   proficiencies: { weapons: string[]; armor: string[]; tools: string[] };
   /** 2024 weapon mastery: the weapons whose Mastery property the character uses. */
   weaponMasteries: { weapon: string; mastery: string; desc: string }[];
-  features: { name: string; source: string; desc: string[] }[];
+  features: {
+    name: string;
+    source: string;
+    desc: string[];
+    activation?: Feature["activation"];
+    recharge?: Feature["recharge"];
+  }[];
   spellSlots: SpellSlotRow[];
   pactSlots?: { level: number; count: number };
   spellcasting: DerivedSpellcasting[];
@@ -194,6 +201,8 @@ export interface DerivedSheet {
    */
   featSpells: {
     featName: string;
+    /** The feat's own description, for the source-label tooltip. */
+    featDesc?: string[];
     spells: { index: string; name: string }[];
     notes: string[];
   }[];
@@ -205,7 +214,14 @@ export interface DerivedSheet {
   featureSpells: {
     featureName: string;
     source: string;
+    /** Granting class index (e.g. "warlock") — lets the sheet label slot costs as Pact slots. */
+    classIndex: string;
     ability?: string;
+    /** The granting feature's own description + activation/recharge, for the
+     *  source-label tooltip (so feature-level data surfaces beside its spells). */
+    featureDesc?: string[];
+    activation?: Feature["activation"];
+    recharge?: Feature["recharge"];
     spells: {
       index: string;
       name: string;

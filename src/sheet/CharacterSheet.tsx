@@ -6,8 +6,9 @@ import { useCharacter } from "@/store/characterStore";
 import { ABILITY_COLORS } from "@/assets/abilityColors";
 import { SkillIcon } from "@/assets/SkillIcon";
 import { Tooltip } from "@/ui/Tooltip";
-import { SpellTooltip } from "@/ui/SpellCard";
-import { FeatureTooltip } from "@/ui/FeatureCard";
+import { SpellTooltip, slotAccess, type SpellAccess } from "@/ui/SpellCard";
+import { FeatureTooltip, RECHARGE_LABEL, ACTION_LABEL } from "@/ui/FeatureCard";
+import { CostIcon, type SlotKind } from "@/ui/CostIcon";
 
 const Sheet = styled.div`
   background:
@@ -293,6 +294,22 @@ const Tag = styled.span<{ $coin?: boolean }>`
   gap: 0.35rem;
 `;
 
+// Leading "source" label in a spell-list block (the granting feat / feature /
+// subclass / species). Deliberately distinct from the spell Tags beside it —
+// dashed gold outline + italic gold text — so it reads as a heading, not a spell.
+const SourceTag = styled.span`
+  ${tagText}
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.6rem;
+  border-radius: 6px;
+  border: 1px dashed ${({ theme }) => `${theme.colors.goldBright}66`};
+  background: rgba(245, 196, 81, 0.08);
+  color: ${({ theme }) => theme.colors.goldBright};
+  font-style: italic;
+`;
+
 const SaveTag = styled(Tag)<{ $proficient?: boolean }>`
   color: ${({ theme, $proficient }) =>
     $proficient ? theme.colors.goldBright : theme.colors.textDim};
@@ -357,6 +374,9 @@ const ResourceBlock = styled.div`
 `;
 
 const ResourceLabel = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
   font-family: ${({ theme }) => theme.fonts.display};
   font-size: 0.81rem;
   letter-spacing: 0.08em;
@@ -448,6 +468,44 @@ function featureSpellUsage(
   return times ? `${times}/Long Rest` : "free cast/Long Rest";
 }
 
+/**
+ * Cast economy for a feature-granted spell: the granting feature's cast time, the
+ * free-cast cadence + recharge, and the resource cost. "At will" is shown only when
+ * the cast is truly free — when a resource cost exists it would contradict it.
+ */
+function featureSpellAccess(
+  s: DerivedSheet["featureSpells"][number]["spells"][number],
+  fs: DerivedSheet["featureSpells"][number]
+): SpellAccess {
+  // Always-prepared grants are cast with spell slots (like subclass spells); a
+  // feature's own resource cost (Sorcery Point, Channel Divinity, …) wins over that.
+  let cost: SpellAccess["cost"] =
+    fs.activation?.cost ?? (s.usage === "always_prepared" ? "spell_slot" : undefined);
+  // A Warlock's "spell slot" is a Pact Magic slot (display-only — see CostIcon).
+  if (cost === "spell_slot" && fs.classIndex === "warlock") cost = "pact_slot";
+  const notes: string[] = [];
+  if (s.usage === "always_prepared") notes.push("Always prepared");
+  else if (s.usage === "per_long_rest") notes.push(s.times ? `${s.times} / Long Rest` : "Per Long Rest");
+  else if (!fs.activation?.cost) notes.push("At will"); // at_will, and only when nothing is spent
+  // Recharge only when it isn't already implied by a per-Long-Rest cadence.
+  if (fs.recharge && s.usage !== "per_long_rest") {
+    const r = fs.recharge;
+    notes.push(`↻ ${r.uses != null ? `${r.uses} / ` : ""}${RECHARGE_LABEL[r.condition]}`);
+  }
+  return {
+    castTime: fs.activation ? ACTION_LABEL[fs.activation.action_type] : undefined,
+    notes,
+    cost,
+  };
+}
+
+/** Cast economy for an always-prepared spell (subclass / species grants).
+ *  `pact` ⇒ the slot is a Warlock Pact Magic slot. */
+function preparedAccess(index: string, pact = false): SpellAccess {
+  if ((spellMap.get(index)?.level ?? 0) === 0) return { notes: ["At will"] };
+  return { notes: ["Always prepared"], cost: pact ? "pact_slot" : "spell_slot" };
+}
+
 export const CharacterSheet = forwardRef<
   HTMLDivElement,
   { sheet: DerivedSheet; interactive?: boolean }
@@ -507,19 +565,21 @@ export const CharacterSheet = forwardRef<
     [update]
   );
 
-  const cantripTotal = sheet.knownSpells.reduce((n, ks) => n + ks.cantrips.length, 0);
-
   const renderResourceRow = (
     key: string,
     label: string,
     total: number,
-    tone: "arcane" | "gold" = "arcane"
+    tone: "arcane" | "gold" = "arcane",
+    icon?: SlotKind
   ) => {
     if (total <= 0) return null;
     const used = slotArray(playState, key, total);
     return (
       <ResourceBlock key={key}>
-        <ResourceLabel>{label}</ResourceLabel>
+        <ResourceLabel>
+          {icon && <CostIcon token={icon} size={13} />}
+          {label}
+        </ResourceLabel>
         {interactive ? (
           <CircleRow>
             {used.map((isUsed, i) => (
@@ -689,15 +749,26 @@ export const CharacterSheet = forwardRef<
                     <Tag>Ability {sc.ability.toUpperCase()}</Tag>
                     <Tag>Save DC {sc.saveDc}</Tag>
                     <Tag>Atk {formatModifier(sc.attackBonus)}</Tag>
+                    {sc.cantripsKnown > 0 && <Tag>{sc.cantripsKnown} Cantrips</Tag>}
+                    {sc.spellsKnownOrPrepared > 0 && (
+                      <Tag>
+                        {sc.spellsKnownOrPrepared} {sc.prepStyle === "known" ? "Known" : "Prepared"}
+                      </Tag>
+                    )}
                   </TagWrap>
                 </SpellClassBlock>
               ))}
-              {renderResourceRow("cantrip", "Cantrip Uses", cantripTotal, "gold")}
               {sheet.spellSlots.map((s) =>
-                renderResourceRow(String(s.level), `Level ${s.level} Slots`, s.total)
+                renderResourceRow(String(s.level), `Level ${s.level} Slots`, s.total, "arcane", "spell_slot")
               )}
               {sheet.pactSlots &&
-                renderResourceRow("pact", `Pact Slots (Lv ${sheet.pactSlots.level})`, sheet.pactSlots.count)}
+                renderResourceRow(
+                  "pact",
+                  `Pact Slots (Lv ${sheet.pactSlots.level})`,
+                  sheet.pactSlots.count,
+                  "gold",
+                  "pact_slot"
+                )}
               {sheet.knownSpells.map((ks) => (
                 <SpellListBlock key={ks.classIndex}>
                   {ks.cantrips.length > 0 && (
@@ -705,7 +776,11 @@ export const CharacterSheet = forwardRef<
                       <ResourceLabel>Cantrips</ResourceLabel>
                       <TagWrap>
                         {ks.cantrips.map((c) => (
-                          <SpellTooltip key={c.index} index={c.index}>
+                          <SpellTooltip
+                            key={c.index}
+                            index={c.index}
+                            access={slotAccess(c.index, ks.classIndex === "warlock")}
+                          >
                             <Tag>{c.name}</Tag>
                           </SpellTooltip>
                         ))}
@@ -725,7 +800,11 @@ export const CharacterSheet = forwardRef<
                               (spellMap.get(b.index)?.level ?? 0)
                           )
                           .map((c) => (
-                            <SpellTooltip key={c.index} index={c.index}>
+                            <SpellTooltip
+                              key={c.index}
+                              index={c.index}
+                              access={slotAccess(c.index, ks.classIndex === "warlock")}
+                            >
                               <Tag>{c.name}</Tag>
                             </SpellTooltip>
                           ))}
@@ -745,9 +824,13 @@ export const CharacterSheet = forwardRef<
               {sheet.subclassSpells.map((ss) => (
                 <SpellListBlock key={ss.classIndex}>
                   <TagWrap>
-                    <Tag>{ss.subclassName}</Tag>
+                    <SourceTag>{ss.subclassName}</SourceTag>
                     {ss.spells.map((s) => (
-                      <SpellTooltip key={s.index} index={s.index}>
+                      <SpellTooltip
+                        key={s.index}
+                        index={s.index}
+                        access={preparedAccess(s.index, ss.classIndex === "warlock")}
+                      >
                         <Tag>{s.name}</Tag>
                       </SpellTooltip>
                     ))}
@@ -765,12 +848,22 @@ export const CharacterSheet = forwardRef<
               {sheet.featureSpells.map((fs, i) => (
                 <SpellListBlock key={`${fs.featureName}-${i}`}>
                   <TagWrap>
-                    <Tag>
-                      {fs.featureName} · {fs.source}
-                      {fs.ability ? ` · ${fs.ability}` : ""}
-                    </Tag>
+                    <FeatureTooltip
+                      feature={{
+                        name: fs.featureName,
+                        source: fs.source + (fs.ability ? ` · ${fs.ability}` : ""),
+                        desc: fs.featureDesc ?? [],
+                        activation: fs.activation,
+                        recharge: fs.recharge,
+                      }}
+                    >
+                      <SourceTag>
+                        {fs.featureName} · {fs.source}
+                        {fs.ability ? ` · ${fs.ability}` : ""}
+                      </SourceTag>
+                    </FeatureTooltip>
                     {fs.spells.map((s) => (
-                      <SpellTooltip key={s.index} index={s.index}>
+                      <SpellTooltip key={s.index} index={s.index} access={featureSpellAccess(s, fs)}>
                         <Tag>
                           {s.name} · {featureSpellUsage(s.usage, s.times)}
                           {s.selfOnly ? " (self)" : ""}
@@ -791,12 +884,12 @@ export const CharacterSheet = forwardRef<
               {sheet.speciesSpells.map((ss, i) => (
                 <SpellListBlock key={`${ss.source}-${ss.traitName}-${i}`}>
                   <TagWrap>
-                    <Tag>
+                    <SourceTag>
                       {ss.source} · {ss.traitName}
                       {ss.ability.length > 0 && ` · ${ss.ability.join(" / ")}`}
-                    </Tag>
+                    </SourceTag>
                     {ss.spells.map((s) => (
-                      <SpellTooltip key={s.index} index={s.index}>
+                      <SpellTooltip key={s.index} index={s.index} access={preparedAccess(s.index)}>
                         <Tag>{s.name}</Tag>
                       </SpellTooltip>
                     ))}
@@ -822,9 +915,13 @@ export const CharacterSheet = forwardRef<
               {sheet.featSpells.map((fs, i) => (
                 <SpellListBlock key={`${fs.featName}-${i}`}>
                   <TagWrap>
-                    <Tag>{fs.featName}</Tag>
+                    <FeatureTooltip
+                      feature={{ name: fs.featName, source: "Feat", desc: fs.featDesc ?? [] }}
+                    >
+                      <SourceTag>{fs.featName}</SourceTag>
+                    </FeatureTooltip>
                     {fs.spells.map((s) => (
-                      <SpellTooltip key={s.index} index={s.index}>
+                      <SpellTooltip key={s.index} index={s.index} access={slotAccess(s.index)}>
                         <Tag>{s.name}</Tag>
                       </SpellTooltip>
                     ))}
