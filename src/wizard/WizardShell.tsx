@@ -13,6 +13,7 @@ import { SubclassStep } from "./steps/SubclassStep";
 import { SpellsStep } from "./steps/SpellsStep";
 import { EquipmentStep } from "./steps/EquipmentStep";
 import { AdvancementStep } from "./steps/AdvancementStep";
+import { FeaturesStep } from "./steps/FeaturesStep";
 import { DetailsStep } from "./steps/DetailsStep";
 import { ReviewStep } from "./steps/ReviewStep";
 import type { StepId } from "@/engine";
@@ -100,6 +101,7 @@ const STEP_COMPONENTS: Record<StepId, () => JSX.Element> = {
   spells: SpellsStep,
   equipment: EquipmentStep,
   advancement: AdvancementStep,
+  features: FeaturesStep,
   details: DetailsStep,
   review: ReviewStep,
 };

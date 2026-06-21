@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
   deriveSheet,
+  featureChoiceSpecs,
   isSpellcaster,
   subclassUnlockedFor,
   validateStep,
@@ -43,6 +44,7 @@ function computeActiveSteps(draft: CharacterDraft): StepMeta[] {
   return ALL_STEPS.filter((s) => {
     if (s.id === "subclass") return subclassNeeded;
     if (s.id === "spells") return caster;
+    if (s.id === "features") return featureChoiceSpecs(draft).length > 0;
     return true;
   });
 }

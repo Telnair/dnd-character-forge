@@ -65,6 +65,13 @@ export interface CharacterDraft {
   /** ASI/feat decisions keyed by "classIndex:level". */
   asiChoices: Record<string, AsiChoice>;
 
+  /**
+   * Class/subclass feature-option picks (Eldritch Invocations, Fighting Style,
+   * Metamagic, Battle Master Maneuvers), keyed by the granting feature's index;
+   * values are the chosen option indexes. See engine/featureChoices.ts.
+   */
+  featureChoices?: Record<string, string[]>;
+
   personality?: string;
   ideals?: string;
   bonds?: string;
@@ -189,6 +196,23 @@ export interface DerivedSheet {
     featName: string;
     spells: { index: string; name: string }[];
     notes: string[];
+  }[];
+  /**
+   * Spells granted by class/subclass feature options: chosen Eldritch Invocations
+   * (Armor of Shadows → Mage Armor at will) and automatic feature grants (Eldritch
+   * Hex → Hex always prepared). Sourced from `feature_specific.spellcasting`.
+   */
+  featureSpells: {
+    featureName: string;
+    source: string;
+    ability?: string;
+    spells: {
+      index: string;
+      name: string;
+      usage: "at_will" | "per_long_rest" | "always_prepared";
+      times?: number;
+      selfOnly?: boolean;
+    }[];
   }[];
   equipment: EquipmentItem[];
   personality?: string;

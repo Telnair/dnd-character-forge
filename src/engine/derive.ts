@@ -1,9 +1,11 @@
 import {
+  ABILITY_ABBR,
   backgroundMap,
   classMap,
   equipment,
   equipmentMap,
   featMap,
+  featureMap,
   raceMap,
   spellMap,
   subclassMap,
@@ -12,6 +14,7 @@ import {
   type AbilityKey,
 } from "@/data";
 import { equipmentOptionLabel } from "./choices";
+import { featureChoiceSpecs } from "./featureChoices";
 import { abilityMods, finalAbilities } from "./abilities";
 import { computeArmorClass } from "./armor";
 import { collectFeatGrants } from "./feats";
@@ -251,6 +254,60 @@ function computeSpeciesSpells(draft: CharacterDraft): DerivedSheet["speciesSpell
   return out;
 }
 
+/**
+ * Spells granted by class/subclass feature options (`feature_specific.spellcasting`):
+ * automatic feature grants (Great Old One's Eldritch Hex → Hex always prepared) plus
+ * the player's chosen Eldritch Invocations (Armor of Shadows → Mage Armor at will).
+ * Deduped by feature; an invocation's spell shows only once it's actually chosen.
+ */
+function computeFeatureSpells(draft: CharacterDraft): DerivedSheet["featureSpells"] {
+  const out: DerivedSheet["featureSpells"] = [];
+  const seen = new Set<string>();
+
+  const push = (feature: ReturnType<typeof featureMap.get>, classIndex: string) => {
+    const sc = feature?.feature_specific?.spellcasting;
+    if (!feature || !sc || seen.has(feature.index)) return;
+    seen.add(feature.index);
+    const fallback = CLASS_CASTING[classIndex]?.ability;
+    out.push({
+      featureName: feature.name.replace(/^Eldritch Invocation:\s*/, ""),
+      source: classMap.get(classIndex)?.name ?? classIndex,
+      ability: sc.ability?.name ?? (fallback ? ABILITY_ABBR[fallback as AbilityKey] : undefined),
+      spells: sc.spells.map((g) => ({
+        index: g.spell.index,
+        name: g.spell.name,
+        usage: g.usage,
+        times: g.times,
+        selfOnly: g.self_only,
+      })),
+    });
+  };
+
+  // Automatic class + subclass features granted up to the entry's level.
+  for (const entry of draft.classes) {
+    const cls = classMap.get(entry.classIndex);
+    for (const lvl of cls?.levels ?? []) {
+      if (lvl.level > entry.level) break;
+      for (const ref of lvl.features ?? []) push(featureMap.get(ref.index), entry.classIndex);
+    }
+    if (entry.subclassIndex) {
+      const sub = subclassMap.get(entry.subclassIndex);
+      for (const lvl of sub?.levels ?? []) {
+        if (lvl.level > entry.level) continue;
+        for (const ref of lvl.features) push(featureMap.get(ref.index), entry.classIndex);
+      }
+    }
+  }
+  // Chosen feature options (invocations) — each pick is its own Feature record.
+  for (const picks of Object.values(draft.featureChoices ?? {})) {
+    for (const optIndex of picks) {
+      const feature = featureMap.get(optIndex);
+      if (feature?.class?.index) push(feature, feature.class.index);
+    }
+  }
+  return out;
+}
+
 function computeWeaponMasteries(
   draft: CharacterDraft
 ): { weapon: string; mastery: string; desc: string }[] {
@@ -304,6 +361,15 @@ export function deriveSheet(draft: CharacterDraft): DerivedSheet {
       source: `${bg.name} (Origin Feat)`,
       desc: feat?.desc ?? [],
     });
+  }
+
+  // Chosen feature options (invocations, fighting style, metamagic, maneuvers)
+  // as their own sheet entries, beside the parent feature's blurb.
+  for (const spec of featureChoiceSpecs(draft)) {
+    for (const optIndex of spec.selected) {
+      const opt = spec.options.find((o) => o.index === optIndex);
+      if (opt) features.push({ name: opt.name, source: `${spec.className} · ${spec.featureName}`, desc: opt.desc });
+    }
   }
 
   const weaponMasteries = computeWeaponMasteries(draft);
@@ -362,6 +428,7 @@ export function deriveSheet(draft: CharacterDraft): DerivedSheet {
     subclassSpells: computeSubclassSpells(draft),
     speciesSpells: computeSpeciesSpells(draft),
     featSpells: collectFeatGrants(draft).spells,
+    featureSpells: computeFeatureSpells(draft),
     equipment: equipmentItems,
     personality: draft.personality,
     ideals: draft.ideals,

@@ -17,7 +17,7 @@ export function DetailsStep() {
   return (
     <>
       <StepIntro
-        eyebrow="Step X"
+        eyebrow="Step XI"
         title="Define Your Persona"
         desc="Give your hero a name and the quirks that bring them to life at the table."
       />

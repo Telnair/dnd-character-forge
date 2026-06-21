@@ -8,6 +8,7 @@ import {
 import { STANDARD_ARRAY } from "./config";
 import { pointBuyRemaining } from "./abilities";
 import { classOtherProfChoices, classSkillChoice } from "./choices";
+import { validateFeatures } from "./featureChoices";
 import { expertiseSlots, speciesTraitChoiceGroups, speciesTraitList } from "./proficiency";
 import { subclassUnlockedFor, allAsiOpportunities } from "./progression";
 import {
@@ -27,6 +28,7 @@ export type StepId =
   | "spells"
   | "equipment"
   | "advancement"
+  | "features"
   | "details"
   | "review";
 
@@ -231,6 +233,8 @@ export function validateStep(step: StepId, d: CharacterDraft): string[] {
       return validateEquipment(d);
     case "advancement":
       return validateAdvancement(d);
+    case "features":
+      return validateFeatures(d);
     case "details":
       return validateDetails(d);
     case "review":

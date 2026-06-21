@@ -8,5 +8,6 @@ export * from "./spells";
 export * from "./multiclass";
 export * from "./armor";
 export * from "./choices";
+export * from "./featureChoices";
 export * from "./derive";
 export * from "./validators";

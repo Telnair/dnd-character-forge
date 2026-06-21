@@ -438,6 +438,16 @@ function isExtraEquipment(name: string, extra: string[] | undefined): boolean {
   return (extra ?? []).includes(name);
 }
 
+/** Short label for how a feature-granted spell may be cast. */
+function featureSpellUsage(
+  usage: "at_will" | "per_long_rest" | "always_prepared",
+  times?: number
+): string {
+  if (usage === "at_will") return "at will";
+  if (usage === "always_prepared") return "always prepared";
+  return times ? `${times}/Long Rest` : "free cast/Long Rest";
+}
+
 export const CharacterSheet = forwardRef<
   HTMLDivElement,
   { sheet: DerivedSheet; interactive?: boolean }
@@ -739,6 +749,32 @@ export const CharacterSheet = forwardRef<
                     {ss.spells.map((s) => (
                       <SpellTooltip key={s.index} index={s.index}>
                         <Tag>{s.name}</Tag>
+                      </SpellTooltip>
+                    ))}
+                  </TagWrap>
+                </SpellListBlock>
+              ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {sheet.featureSpells.length > 0 && (
+            <Card data-export-block>
+              <CardLabel>Feature Spells</CardLabel>
+              <CardContent>
+              {sheet.featureSpells.map((fs, i) => (
+                <SpellListBlock key={`${fs.featureName}-${i}`}>
+                  <TagWrap>
+                    <Tag>
+                      {fs.featureName} · {fs.source}
+                      {fs.ability ? ` · ${fs.ability}` : ""}
+                    </Tag>
+                    {fs.spells.map((s) => (
+                      <SpellTooltip key={s.index} index={s.index}>
+                        <Tag>
+                          {s.name} · {featureSpellUsage(s.usage, s.times)}
+                          {s.selfOnly ? " (self)" : ""}
+                        </Tag>
                       </SpellTooltip>
                     ))}
                   </TagWrap>

@@ -18,6 +18,7 @@ export const ALL_STEPS: StepMeta[] = [
   { id: "spells", title: "Arcana", subtitle: "Spells" },
   { id: "equipment", title: "Arsenal", subtitle: "Equipment" },
   { id: "advancement", title: "Ascension", subtitle: "Level & Multiclass" },
+  { id: "features", title: "Talents", subtitle: "Feature Choices" },
   { id: "details", title: "Persona", subtitle: "Details" },
   { id: "review", title: "Legend", subtitle: "Character Sheet" },
 ];
