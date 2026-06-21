@@ -53,11 +53,11 @@ export const GlobalStyle = createGlobalStyle`
   }
 
   ::-webkit-scrollbar { width: 12px; height: 12px; }
-  ::-webkit-scrollbar-track { background: ${({ theme }) => theme.colors.bg}; }
+  ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0); }
   ::-webkit-scrollbar-thumb {
-    background: linear-gradient(${({ theme }) => theme.colors.goldDim}, ${({ theme }) => theme.colors.ember});
+    box-shadow: inset 0 0 10px 10px ${({ theme }) => theme.colors.goldDim};
     border-radius: 10px;
-    border: 3px solid ${({ theme }) => theme.colors.bg};
+    border: solid 3px transparent;
   }
 
   a { color: ${({ theme }) => theme.colors.gold}; }

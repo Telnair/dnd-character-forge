@@ -31,10 +31,9 @@ const Bubble = styled(motion.div)<{ $rich?: boolean }>`
   overflow-y: auto;
   padding: ${({ $rich }) => ($rich ? "0" : "0.6rem 0.7rem")};
   border-radius: ${({ theme }) => theme.radius.md};
-  border: 1px solid ${({ theme }) => theme.colors.borderStrong};
   background: #16110d;
   color: ${({ theme }) => theme.colors.textDim};
-  box-shadow: ${({ theme }) => theme.shadow.panel};
+  box-shadow: ${({ theme }) => theme.shadow.panel}, 0px 0px 0px 1px ${({ theme }) => theme.colors.borderStrong};
   font-family: ${({ theme }) => theme.fonts.body};
   font-size: 1rem;
   line-height: 1.5;

@@ -37,7 +37,7 @@ export const theme = {
   shadow: {
     glow: "0 0 24px rgba(245, 196, 81, 0.25)",
     glowStrong: "0 0 40px rgba(245, 196, 81, 0.45)",
-    panel: "0 18px 50px rgba(0, 0, 0, 0.55)",
+    panel: "0 18px 50px rgba(0, 0, 0, 0.9)",
     inset: "inset 0 1px 0 rgba(255,255,255,0.05)",
   },
 } as const;

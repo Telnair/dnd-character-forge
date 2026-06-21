@@ -39,14 +39,15 @@ const DAMAGE_COLORS: Record<string, string> = {
 const ordinal = (n: number) => {
   const s = ["th", "st", "nd", "rd"];
   const v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  const tt = <span>{s[(v - 20) % 10] || s[v] || s[0]}</span>;
+  return <><b>{n}</b>{tt}</>;
 };
 
 /** "Evocation Cantrip" for cantrips, "2nd-level Conjuration" otherwise. */
-function schoolLine(spell: SrdSpell): string {
+function schoolLine(spell: SrdSpell) {
   return spell.level === 0
-    ? `${spell.school.name} Cantrip`
-    : `${ordinal(spell.level)}-level ${spell.school.name}`;
+    ? <>{spell.school.name} Cantrip</>
+    : <>{ordinal(spell.level)}-level {spell.school.name}</>;
 }
 
 /** Base damage/heal dice — slot level for leveled spells, char level 1 for cantrips. */
@@ -309,7 +310,7 @@ export function SpellCard({ spell, access }: { spell: SrdSpell; access?: SpellAc
       )}
 
       <Access>
-        <AccessLabel>Cast</AccessLabel>
+        {/* <AccessLabel>Cast</AccessLabel> */}
         <AccessPill>{access?.castTime ?? castingTime(spell.casting_time)}</AccessPill>
         {access?.notes?.map((n, i) => (
           <AccessPill key={i}>{n}</AccessPill>
