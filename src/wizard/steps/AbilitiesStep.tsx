@@ -64,7 +64,7 @@ const AbilityRow = styled.div`
 
 const AbilityName = styled.div<{ $color: string }>`
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 1rem;
+  font-size: 1.12rem;
   color: ${({ $color }) => $color};
   display: flex;
   align-items: center;
@@ -80,12 +80,19 @@ const AbilityName = styled.div<{ $color: string }>`
 `;
 
 const Select = styled.select`
-  background: rgba(0, 0, 0, 0.5);
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: rgba(0, 0, 0, 0.5);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%239c7a33' stroke-width='1.75' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+  background-size: 0.7rem auto;
   color: ${({ theme }) => theme.colors.text};
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radius.sm};
-  padding: 0.4rem 0.6rem;
+  padding: 0.4rem 2.75rem 0.4rem 0.6rem;
   font-size: 1rem;
+  cursor: pointer;
 `;
 
 const Stepper = styled.div`
@@ -101,8 +108,13 @@ const StepBtn = styled.button`
   border: 1px solid ${({ theme }) => theme.colors.border};
   background: rgba(245, 196, 81, 0.08);
   color: ${({ theme }) => theme.colors.gold};
+  font-family: ${({ theme }) => theme.fonts.display};
   font-size: 1.2rem;
   line-height: 1;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   &:disabled {
     opacity: 0.3;

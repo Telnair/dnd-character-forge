@@ -117,7 +117,7 @@ const Caption = styled.div<{ $tone: "idle" | "rolling" | "crit" | "fumble" | "re
   font-family: ${({ theme }) => theme.fonts.display};
   text-transform: uppercase;
   letter-spacing: 0.22em;
-  font-size: 0.72rem;
+  font-size: 0.81rem;
   min-height: 1.1em;
   transition: color 0.2s ease;
   color: ${({ theme, $tone }) =>

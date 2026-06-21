@@ -6,29 +6,45 @@ const Wrap = styled.div<{ $size: number }>`
   height: ${({ $size }) => $size}px;
   flex: 0 0 auto;
   position: relative;
-  display: grid;
-  place-items: center;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(
+    circle at 32% 28%,
+    rgba(245, 196, 81, 0.22),
+    rgba(28, 22, 18, 0.98) 62%,
+    rgba(12, 10, 9, 1)
+  );
+  border: 1.5px solid ${({ theme }) => theme.colors.borderStrong};
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 `;
 
+/** Black-backed PNG heraldics: screen blend drops the matte; centered via translate + scale. */
 const Img = styled.img<{ $size: number }>`
-  width: ${({ $size }) => $size}px;
-  height: ${({ $size }) => $size}px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 59.4px;
+  height: ${({ $size }) => $size * 0.9}px;
+  transform: translate(-50%, -50%) scale(1.14);
+  transform-origin: center center;
   object-fit: contain;
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6));
+  object-position: center center;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  display: block;
 `;
 
 const Fallback = styled.div<{ $size: number }>`
-  width: ${({ $size }) => $size}px;
-  height: ${({ $size }) => $size}px;
-  border-radius: 50%;
+  position: absolute;
+  inset: 0;
   display: grid;
   place-items: center;
   font-family: ${({ theme }) => theme.fonts.display};
   font-weight: 800;
   font-size: ${({ $size }) => $size * 0.42}px;
   color: ${({ theme }) => theme.colors.goldBright};
-  background: radial-gradient(circle at 30% 25%, rgba(245, 196, 81, 0.25), rgba(20, 16, 13, 0.9));
-  border: 1px solid ${({ theme }) => theme.colors.borderStrong};
   text-shadow: 0 0 12px rgba(245, 196, 81, 0.5);
 `;
 
@@ -44,6 +60,7 @@ export function ClassIcon({
   kind?: "classes" | "subclasses" | "races";
 }) {
   const [failed, setFailed] = useState(false);
+
   return (
     <Wrap $size={size}>
       {failed ? (

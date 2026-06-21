@@ -15,22 +15,23 @@ export const StepHeader = styled.div`
 `;
 
 export const StepTitle = styled.h1`
-  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  font-size: clamp(2rem, 3.2vw, 2.9rem);
   color: ${({ theme }) => theme.colors.text};
   line-height: 1.05;
 `;
 
-export const StepDesc = styled.p`
+export const StepDesc = styled.p<{ $fullWidth?: boolean }>`
   font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   color: ${({ theme }) => theme.colors.textDim};
   margin: 0;
-  max-width: 70ch;
+  max-width: ${({ $fullWidth }) => ($fullWidth ? "none" : "70ch")};
+  line-height: 1.5;
 `;
 
 export const FieldLabel = styled.div`
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 0.78rem;
+  font-size: 0.95rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: ${({ theme }) => theme.colors.gold};
@@ -41,15 +42,16 @@ export const FieldLabel = styled.div`
 `;
 
 export const HelpText = styled.p`
-  color: ${({ theme }) => theme.colors.textFaint};
-  font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: 1rem;
+  color: ${({ theme }) => theme.colors.textDim};
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 1.12rem;
+  line-height: 1.55;
   margin: 0.2rem 0 0;
 `;
 
 export const Counter = styled.span<{ $done?: boolean }>`
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 0.72rem;
+  font-size: 0.81rem;
   color: ${({ theme, $done }) => ($done ? theme.colors.success : theme.colors.ember)};
   border: 1px solid currentColor;
   border-radius: 999px;
@@ -121,12 +123,22 @@ export const Chip = styled.button<{ $active?: boolean; $locked?: boolean }>`
   transition: background 0.15s ease, border-color 0.15s ease;
 `;
 
-export function StepIntro({ eyebrow, title, desc }: { eyebrow: string; title: string; desc: string }) {
+export function StepIntro({
+  eyebrow,
+  title,
+  desc,
+  fullWidthDesc,
+}: {
+  eyebrow: string;
+  title: string;
+  desc: string;
+  fullWidthDesc?: boolean;
+}) {
   return (
     <StepHeader>
       <Eyebrow>{eyebrow}</Eyebrow>
       <StepTitle>{title}</StepTitle>
-      <StepDesc>{desc}</StepDesc>
+      <StepDesc $fullWidth={fullWidthDesc}>{desc}</StepDesc>
     </StepHeader>
   );
 }

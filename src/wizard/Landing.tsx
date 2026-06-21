@@ -57,7 +57,7 @@ const Features = styled.div`
   justify-content: center;
   margin-top: 1rem;
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 0.78rem;
+  font-size: 0.81rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: ${({ theme }) => theme.colors.textFaint};

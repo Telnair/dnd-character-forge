@@ -9,8 +9,33 @@ import { ClassIcon } from "@/assets/ClassIcon";
 
 const CardTitle = styled.div`
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 1.1rem;
+  font-size: 1.3rem;
   color: ${({ theme }) => theme.colors.goldBright};
+`;
+
+const CardRow = styled.div`
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+`;
+
+const CardBody = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+
+const PillRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+  width: 100%;
+`;
+
+const SpeciesPill = styled(Pill)`
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  padding: 0.18rem 0.48rem;
 `;
 
 const Row = styled.div`
@@ -41,6 +66,20 @@ const TraitBox = styled.div`
   border-left: 3px solid ${({ theme }) => theme.colors.arcane};
   padding-left: 0.9rem;
   margin-top: 0.8rem;
+`;
+
+const TraitName = styled.div`
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 1.22rem;
+  color: ${({ theme }) => theme.colors.goldBright};
+  margin-bottom: 0.15rem;
+`;
+
+const SubspeciesCard = styled(SelectCard)`
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 `;
 
 export function RaceStep() {
@@ -93,6 +132,7 @@ export function RaceStep() {
       <StepIntro
         eyebrow="Step I"
         title="Choose Your Species"
+        fullWidthDesc
         desc="Your species shapes your body, your senses, and the traits coursing through your blood. (In the 2024 rules, ability bonuses come from your background, not your species.)"
       />
 
@@ -105,17 +145,17 @@ export function RaceStep() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.99 }}
           >
-            <div style={{ display: "flex", gap: "0.8rem", alignItems: "center" }}>
+            <CardRow>
               <ClassIcon index={r.index} name={r.name} size={46} kind="races" />
-              <div>
+              <CardBody>
                 <CardTitle>{r.name}</CardTitle>
-                <div style={{ display: "flex", gap: "0.3rem", flexWrap: "wrap", marginTop: 4 }}>
-                  <Pill $tone="muted">{r.size ?? "Varies"}</Pill>
-                  <Pill $tone="muted">Speed {r.speed}</Pill>
-                  {r.type && <Pill $tone="arcane">{r.type}</Pill>}
-                </div>
-              </div>
-            </div>
+                <PillRow>
+                  <SpeciesPill $tone="muted">{r.size ?? "Varies"}</SpeciesPill>
+                  <SpeciesPill $tone="muted">Speed {r.speed}</SpeciesPill>
+                  {r.type && <SpeciesPill $tone="arcane">{r.type}</SpeciesPill>}
+                </PillRow>
+              </CardBody>
+            </CardRow>
           </SelectCard>
         ))}
       </Grid>
@@ -125,7 +165,7 @@ export function RaceStep() {
           <FieldLabel>Lineage / Subspecies</FieldLabel>
           <Grid $min="240px">
             {raceSubraces.map((sub) => (
-              <SelectCard
+              <SubspeciesCard
                 key={sub.index}
                 $active={draft.subraceIndex === sub.index}
                 onClick={() =>
@@ -137,7 +177,7 @@ export function RaceStep() {
               >
                 <CardTitle>{sub.name}</CardTitle>
                 {sub.desc?.[0] && <HelpText>{sub.desc[0]}</HelpText>}
-              </SelectCard>
+              </SubspeciesCard>
             ))}
           </Grid>
         </Block>
@@ -154,7 +194,7 @@ export function RaceStep() {
               const chosen = draft.speciesTraitChoices?.[trait.index] ?? [];
               return (
                 <TraitBox key={trait.index}>
-                  <div style={{ fontWeight: 600, color: "inherit" }}>{trait.name}</div>
+                  <TraitName>{trait.name}</TraitName>
                   {trait.desc.map((d, i) => (
                     <HelpText key={i}>{d}</HelpText>
                   ))}

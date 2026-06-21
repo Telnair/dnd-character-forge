@@ -92,6 +92,12 @@ const ClassRow = styled.div`
   flex-wrap: wrap;
 `;
 
+const ClassName = styled.div`
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 1.2rem;
+  color: ${({ theme }) => theme.colors.text};
+`;
+
 const Stepper = styled.div`
   display: flex;
   align-items: center;
@@ -160,7 +166,7 @@ const Toggle = styled.button<{ $active: boolean }>`
   color: ${({ theme, $active }) => ($active ? theme.colors.goldBright : theme.colors.text)};
   cursor: pointer;
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 0.85rem;
+  font-size: 0.98rem;
 `;
 
 const MiniStep = styled.div`
@@ -328,12 +334,12 @@ export function AdvancementStep() {
             <ClassRow key={entry.classIndex}>
               <ClassIcon index={entry.classIndex} name={cls?.name ?? ""} size={38} />
               <div>
-                <div>
+                <ClassName>
                   {cls?.name} {entry.isPrimary && <Pill $tone="gold">Primary</Pill>}
-                </div>
+                </ClassName>
                 {!entry.isPrimary && (
                   <>
-                    <HelpText style={{ fontSize: "0.78rem", margin: "0.15rem 0 0" }}>
+                    <HelpText style={{ margin: "0.15rem 0 0" }}>
                       Multiclass proficiencies: {multiclassProfLabel(entry.classIndex)}
                     </HelpText>
                     <RemoveBtn

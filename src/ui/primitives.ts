@@ -20,7 +20,7 @@ export const Panel = styled.div`
 `;
 
 export const SectionTitle = styled.h2`
-  font-size: 1.4rem;
+  font-size: 1.6rem;
   color: ${({ theme }) => theme.colors.goldBright};
   text-shadow: 0 0 18px rgba(245, 196, 81, 0.25);
   display: flex;
@@ -32,14 +32,15 @@ export const Eyebrow = styled.div`
   font-family: ${({ theme }) => theme.fonts.display};
   text-transform: uppercase;
   letter-spacing: 0.32em;
-  font-size: 0.72rem;
+  font-size: 0.88rem;
   color: ${({ theme }) => theme.colors.ember};
 `;
 
 export const Lead = styled.p`
   font-family: ${({ theme }) => theme.fonts.heading};
   color: ${({ theme }) => theme.colors.textDim};
-  font-size: 1.15rem;
+  font-size: 1.2rem;
+  line-height: 1.5;
   margin: 0.3rem 0 0;
 `;
 
@@ -89,7 +90,7 @@ export const Pill = styled.span<{ $tone?: "gold" | "arcane" | "ember" | "muted" 
   align-items: center;
   gap: 0.35rem;
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 0.7rem;
+  font-size: 0.81rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   padding: 0.25rem 0.6rem;
@@ -106,10 +107,11 @@ export const Pill = styled.span<{ $tone?: "gold" | "arcane" | "ember" | "muted" 
   background: rgba(0, 0, 0, 0.25);
 `;
 
-export const Grid = styled.div<{ $min?: string; $gap?: string }>`
+export const Grid = styled.div<{ $min?: string; $gap?: string; $align?: string }>`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(${({ $min }) => $min ?? "220px"}, 1fr));
   gap: ${({ $gap }) => $gap ?? "1rem"};
+  align-items: ${({ $align }) => $align ?? "stretch"};
 `;
 
 export const SelectCard = styled(motion.button)<{ $active?: boolean }>`

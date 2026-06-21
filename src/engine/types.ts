@@ -73,6 +73,18 @@ export interface CharacterDraft {
   backstory?: string;
   hpMode: "fixed" | "rolled";
   rolledHp?: Record<string, number[]>; // classIndex -> per-level rolls
+  /** Session tracking on the Legend sheet (HP, spell slots, etc.). */
+  playState?: PlayState;
+  /** Free-text equipment added on the Legend sheet. */
+  extraEquipment?: string[];
+}
+
+/** Tracks in-play resource usage shown on the character sheet. */
+export interface PlayState {
+  /** When set, the sheet shows current / max HP. */
+  currentHp?: number;
+  /** Keyed by spell level ("1"…"9"), "pact", or "cantrip" — each bool is a slot circle. */
+  usedSlots?: Record<string, boolean[]>;
 }
 
 export interface SkillRow {

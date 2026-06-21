@@ -36,8 +36,8 @@ const Bubble = styled(motion.div)<{ $rich?: boolean }>`
   color: ${({ theme }) => theme.colors.textDim};
   box-shadow: ${({ theme }) => theme.shadow.panel};
   font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 0.82rem;
-  line-height: 1.4;
+  font-size: 1rem;
+  line-height: 1.5;
   /* Plain-string tooltips honor their literal \n breaks; rich content (a card)
      manages its own layout. */
   white-space: ${({ $rich }) => ($rich ? "normal" : "pre-wrap")};
@@ -53,16 +53,14 @@ const Bubble = styled(motion.div)<{ $rich?: boolean }>`
 const BubbleTitle = styled.span`
   display: block;
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 0.78rem;
+  font-size: 0.95rem;
   letter-spacing: 0.04em;
   color: ${({ theme }) => theme.colors.goldBright};
   margin-bottom: 0.3rem;
 `;
 
 const GAP = 8;
-// Debounce so a quick mouse sweep across triggers doesn't flash tooltips, and a
-// grace period on hide so the pointer can cross the GAP into the bubble (to
-// scroll or select) without it dismissing.
+const MAX_TOOLTIP_HEIGHT = 280;
 const SHOW_DELAY = 120;
 const HIDE_DELAY = 180;
 
@@ -71,16 +69,20 @@ export function Tooltip({
   content,
   children,
   block,
+  trigger = "hover",
 }: {
   title?: string;
   /** Plain text (literal \n line breaks honored) or a rich node such as a card. */
   content?: ReactNode;
   children: ReactNode;
   block?: boolean;
+  /** Hover (default) or click to toggle — click mode skips hover on the trigger. */
+  trigger?: "hover" | "click";
 }) {
   const [open, setOpen] = useState(false);
   const showTimer = useRef<ReturnType<typeof setTimeout>>();
   const hideTimer = useRef<ReturnType<typeof setTimeout>>();
+  const wrapperRef = useRef<HTMLSpanElement | null>(null);
 
   const clearTimers = useCallback(() => {
     clearTimeout(showTimer.current);
@@ -88,32 +90,42 @@ export function Tooltip({
   }, []);
 
   const openSoon = useCallback(() => {
+    if (trigger !== "hover") return;
     clearTimers();
     showTimer.current = setTimeout(() => setOpen(true), SHOW_DELAY);
-  }, [clearTimers]);
+  }, [clearTimers, trigger]);
 
-  // Keyboard focus shouldn't wait — surface it immediately.
   const openNow = useCallback(() => {
     clearTimers();
     setOpen(true);
   }, [clearTimers]);
 
   const closeSoon = useCallback(() => {
+    if (trigger !== "hover") return;
     clearTimers();
     hideTimer.current = setTimeout(() => setOpen(false), HIDE_DELAY);
+  }, [clearTimers, trigger]);
+
+  const toggle = useCallback(() => {
+    clearTimers();
+    setOpen((v) => !v);
   }, [clearTimers]);
 
   useEffect(() => clearTimers, [clearTimers]);
 
-  // floating-ui owns the geometry: prefer top, flip to bottom when it doesn't
-  // fit, shift along the viewport to dodge horizontal overflow, and cap the
-  // height to whatever room remains on the chosen side.
+  useEffect(() => {
+    if (trigger !== "click" || !open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (!wrapperRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [trigger, open]);
+
   const { refs, floatingStyles, isPositioned } = useFloating({
     open,
     placement: "top",
     strategy: "fixed",
-    // Position with top/left rather than transform, leaving `transform` free
-    // for the motion enter/exit (translateY) animation below.
     transform: false,
     whileElementsMounted: autoUpdate,
     middleware: [
@@ -123,7 +135,8 @@ export function Tooltip({
       size({
         padding: GAP,
         apply({ availableHeight, elements }) {
-          elements.floating.style.maxHeight = `${Math.max(0, availableHeight)}px`;
+          const capped = Math.min(Math.max(0, availableHeight), MAX_TOOLTIP_HEIGHT);
+          elements.floating.style.maxHeight = `${capped}px`;
         },
       }),
     ],
@@ -132,37 +145,50 @@ export function Tooltip({
   if (!content) return <>{children}</>;
 
   const rich = typeof content !== "string";
+  const isClick = trigger === "click";
+
+  const setRef = (node: HTMLSpanElement | null) => {
+    wrapperRef.current = node;
+    refs.setReference(node);
+  };
 
   return (
     <Wrapper
-      ref={refs.setReference}
-      tabIndex={0}
+      ref={setRef}
+      tabIndex={isClick ? undefined : 0}
       $block={block}
-      onMouseEnter={openSoon}
-      onMouseLeave={closeSoon}
-      onFocus={openNow}
-      onBlur={closeSoon}
+      onMouseEnter={isClick ? undefined : openSoon}
+      onMouseLeave={isClick ? undefined : closeSoon}
+      onFocus={isClick ? undefined : openNow}
+      onBlur={isClick ? undefined : closeSoon}
+      onClick={isClick ? (e) => e.stopPropagation() : undefined}
     >
-      {children}
+      {isClick ? (
+        <span
+          onClick={(e) => {
+            e.stopPropagation();
+            toggle();
+          }}
+          style={{ display: "inline-flex" }}
+        >
+          {children}
+        </span>
+      ) : (
+        children
+      )}
       {createPortal(
-        // AnimatePresence lives inside the portal so the motion bubble is its
-        // direct child — required for the exit animation to run.
         <AnimatePresence>
           {open && (
             <Bubble
               ref={refs.setFloating}
               role="tooltip"
               $rich={rich}
-              // Entering the bubble cancels the pending hide so the user can
-              // scroll or select inside it; leaving restarts the grace timer.
-              onMouseEnter={clearTimers}
-              onMouseLeave={closeSoon}
+              onMouseEnter={isClick ? undefined : clearTimers}
+              onMouseLeave={isClick ? undefined : closeSoon}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-              // Hidden until floating-ui computes the first position, otherwise
-              // it would animate in from the top-left corner.
               style={{
                 ...floatingStyles,
                 visibility: isPositioned ? "visible" : "hidden",

@@ -273,7 +273,10 @@ export function deriveSheet(draft: CharacterDraft): DerivedSheet {
   const pb = proficiencyBonus(draft);
   const skills = computeSkills(draft);
   const perception = skills.find((s) => s.index === "perception");
-  const equipmentItems = resolveEquipment(draft);
+  const equipmentItems = [
+    ...resolveEquipment(draft),
+    ...(draft.extraEquipment ?? []).map((name) => ({ name, quantity: 1 })),
+  ];
   const ac = computeArmorClass(draft, equipmentItems);
 
   const race = draft.raceIndex ? raceMap.get(draft.raceIndex) : undefined;

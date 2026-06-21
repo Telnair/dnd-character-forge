@@ -4,19 +4,40 @@ import { SUBCLASS_LEVEL, subclassUnlockedFor } from "@/engine";
 import { useCharacter } from "@/store/characterStore";
 import { SelectCard, Divider, Pill } from "@/ui/primitives";
 import { StepIntro, FieldLabel, HelpText, Block } from "../common";
-import { ClassIcon } from "@/assets/ClassIcon";
+
+const CardBody = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+`;
+
+const CardHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+`;
 
 const CardTitle = styled.div`
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 1.2rem;
+  font-size: 1.35rem;
   color: ${({ theme }) => theme.colors.goldBright};
+  min-width: 0;
+  flex: 1;
+`;
+
+const FlavorPill = styled(Pill)`
+  flex-shrink: 0;
 `;
 
 const Desc = styled.p`
-  font-family: ${({ theme }) => theme.fonts.heading};
+  font-family: ${({ theme }) => theme.fonts.body};
   color: ${({ theme }) => theme.colors.textDim};
-  font-size: 1rem;
-  margin: 0.5rem 0 0;
+  font-size: 1.12rem;
+  line-height: 1.55;
+  margin: 0;
+  width: 100%;
 `;
 
 export function SubclassStep() {
@@ -54,16 +75,15 @@ export function SubclassStep() {
                 whileTap={{ scale: 0.99 }}
                 style={{ marginTop: "0.6rem", width: "100%" }}
               >
-                <div style={{ display: "flex", gap: "0.9rem", alignItems: "flex-start" }}>
-                  <ClassIcon index={sub.index} name={sub.name} size={50} kind="subclasses" />
-                  <div>
+                <CardBody>
+                  <CardHeader>
                     <CardTitle>{sub.name}</CardTitle>
-                    <Pill $tone="arcane">{sub.subclass_flavor}</Pill>
-                    {sub.desc?.slice(0, 2).map((d, i) => (
-                      <Desc key={i}>{d}</Desc>
-                    ))}
-                  </div>
-                </div>
+                    <FlavorPill $tone="arcane">{sub.subclass_flavor}</FlavorPill>
+                  </CardHeader>
+                  {sub.desc?.slice(0, 2).map((d, i) => (
+                    <Desc key={i}>{d}</Desc>
+                  ))}
+                </CardBody>
               </SelectCard>
             ))}
           </Block>

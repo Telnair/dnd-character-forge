@@ -14,7 +14,7 @@ import { FeatChoice } from "./FeatChoice";
 
 const CardTitle = styled.div`
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 1.15rem;
+  font-size: 1.3rem;
   color: ${({ theme }) => theme.colors.goldBright};
 `;
 
@@ -23,11 +23,18 @@ const FeatRow = styled.div`
   align-items: center;
   gap: 0.4rem;
   margin-top: 0.55rem;
+  flex-wrap: wrap;
+`;
+
+const BackgroundPill = styled(Pill)`
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  padding: 0.18rem 0.48rem;
 `;
 
 const FeatLabel = styled.span`
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: ${({ theme }) => theme.colors.textFaint};
@@ -100,16 +107,16 @@ export function BackgroundStep() {
               <CardTitle>{b.name}</CardTitle>
               <ChipRow>
                 {b.ability_scores.map((a) => (
-                  <Pill key={a.index} $tone="gold">
+                  <BackgroundPill key={a.index} $tone="gold">
                     {ABILITY_ABBR[a.index as AbilityKey] ?? a.name}
-                  </Pill>
+                  </BackgroundPill>
                 ))}
               </ChipRow>
               <ChipRow>
                 {b.starting_proficiencies.map((p) => (
-                  <Pill key={p.index} $tone="muted">
+                  <BackgroundPill key={p.index} $tone="muted">
                     {p.name.replace(/^Skill: /, "").replace(/^Tool: /, "")}
-                  </Pill>
+                  </BackgroundPill>
                 ))}
               </ChipRow>
               {cardFeat && (
@@ -122,7 +129,7 @@ export function BackgroundStep() {
                       desc: cardFeat.desc,
                     }}
                   >
-                    <Pill $tone="ember">{cardFeat.name}</Pill>
+                    <BackgroundPill $tone="ember">{cardFeat.name}</BackgroundPill>
                   </FeatureTooltip>
                 </FeatRow>
               )}

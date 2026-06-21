@@ -8,27 +8,37 @@ import { ClassIcon } from "@/assets/ClassIcon";
 
 const CardTitle = styled.div`
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 1.15rem;
+  font-size: 1.3rem;
   color: ${({ theme }) => theme.colors.goldBright};
 `;
 
-const Meta = styled.div`
+const CardRow = styled.div`
   display: flex;
-  gap: 0.3rem;
-  flex-wrap: wrap;
-  margin-top: 0.4rem;
+  gap: 0.85rem;
+  align-items: center;
 `;
 
-const FeatureList = styled.ul`
-  margin: 0.5rem 0 0;
-  padding-left: 1.1rem;
-  color: ${({ theme }) => theme.colors.textDim};
-  font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: 1.02rem;
-  columns: 2;
-  @media (max-width: 720px) {
-    columns: 1;
-  }
+const CardBody = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+
+const PillRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+  width: 100%;
+`;
+
+const ClassPill = styled(Pill)`
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  padding: 0.18rem 0.48rem;
+`;
+
+const SubclassNote = styled(HelpText)`
+  margin-top: 0.85rem;
 `;
 
 export function ClassStep() {
@@ -82,27 +92,25 @@ export function ClassStep() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.99 }}
             >
-              <div style={{ display: "flex", gap: "0.85rem", alignItems: "center" }}>
+              <CardRow>
                 <ClassIcon index={c.index} name={c.name} size={52} />
-                <div>
+                <CardBody>
                   <CardTitle>{c.name}</CardTitle>
-                  <Meta>
-                    <Pill $tone="ember">d{c.hit_die} HD</Pill>
+                  <PillRow>
+                    <ClassPill $tone="ember">d{c.hit_die} HD</ClassPill>
                     {cfg?.caster !== "none" && (
-                      <Pill $tone="arcane">
+                      <ClassPill $tone="arcane">
                         {cfg.caster === "pact" ? "Pact Magic" : "Spellcaster"}
-                      </Pill>
+                      </ClassPill>
                     )}
-                  </Meta>
-                  <Meta>
                     {c.saving_throws.map((s) => (
-                      <Pill key={s.index} $tone="muted">
+                      <ClassPill key={s.index} $tone="muted">
                         {ABILITY_ABBR[s.index as AbilityKey]} save
-                      </Pill>
+                      </ClassPill>
                     ))}
-                  </Meta>
-                </div>
-              </div>
+                  </PillRow>
+                </CardBody>
+              </CardRow>
             </SelectCard>
           );
         })}
@@ -113,15 +121,17 @@ export function ClassStep() {
           <Divider />
           <Block>
             <FieldLabel>{cls.name} — Level 1 Features</FieldLabel>
-            <FeatureList>
+            <ChipRow>
               {level1Features.map((f) => (
-                <li key={f.index}>{f.name}</li>
+                <Pill key={f.index} $tone="muted">
+                  {f.name}
+                </Pill>
               ))}
-            </FeatureList>
-            <HelpText>
+            </ChipRow>
+            <SubclassNote>
               Subclass chosen at level {SUBCLASS_LEVEL[cls.index]}. Hit die d{cls.hit_die}. Saving
               throws: {cls.saving_throws.map((s) => ABILITY_ABBR[s.index as AbilityKey]).join(", ")}.
-            </HelpText>
+            </SubclassNote>
             <ChipRow>
               {cls.proficiencies
                 .filter((p) => !p.index.startsWith("skill-") && !p.index.startsWith("saving-throw"))

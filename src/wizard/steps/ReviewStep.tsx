@@ -39,7 +39,7 @@ export function ReviewStep() {
   const doExport = async () => {
     setBusy(true);
     try {
-      await exportPdf(derived);
+      await exportPdf(derived, draft.playState);
     } catch (err) {
       console.error(err);
       alert("Export failed. Please try again.");
@@ -56,7 +56,7 @@ export function ReviewStep() {
     if (!file) return;
     try {
       const imported = await readCharacterFile(file);
-      loadDraft(imported);
+      loadDraft(imported, { imported: true });
     } catch (err) {
       console.error(err);
       alert(err instanceof Error ? err.message : "Could not import that file.");

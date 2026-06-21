@@ -49,7 +49,7 @@ const Brand = styled.div`
 
 const BrandMark = styled.div`
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   line-height: 1;
   color: ${({ theme }) => theme.colors.goldBright};
   letter-spacing: 0.04em;

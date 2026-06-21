@@ -68,16 +68,16 @@ const Card = styled.div`
 
 const Name = styled.div`
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 1rem;
+  font-size: 1.18rem;
   letter-spacing: 0.03em;
   color: ${({ theme }) => theme.colors.goldBright};
 `;
 
 const SubLine = styled.div`
   font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: 0.92rem;
+  font-size: 1rem;
   font-style: italic;
-  color: ${({ theme }) => theme.colors.textFaint};
+  color: ${({ theme }) => theme.colors.textDim};
   margin-top: -0.15rem;
 `;
 
@@ -101,8 +101,9 @@ const DamageLine = styled.div<{ $color: string }>`
 const Desc = styled.p`
   margin: 0;
   color: ${({ theme }) => theme.colors.textDim};
-  font-size: 0.84rem;
-  line-height: 1.4;
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 1.05rem;
+  line-height: 1.5;
 `;
 
 const Meta = styled.dl`
@@ -114,16 +115,16 @@ const Meta = styled.dl`
 
 const MetaKey = styled.dt`
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 0.6rem;
-  letter-spacing: 0.1em;
+  font-size: 0.81rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: ${({ theme }) => theme.colors.textFaint};
+  color: ${({ theme }) => theme.colors.textDim};
   align-self: center;
 `;
 
 const MetaVal = styled.dd`
   margin: 0;
-  font-size: 0.84rem;
+  font-size: 0.98rem;
   color: ${({ theme }) => theme.colors.text};
 `;
 
@@ -136,8 +137,8 @@ const Badges = styled.div`
 
 const Badge = styled.span<{ $tone?: "arcane" | "ember" }>`
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 0.6rem;
-  letter-spacing: 0.08em;
+  font-size: 0.81rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   padding: 0.18rem 0.45rem;
   border-radius: 999px;
@@ -148,10 +149,31 @@ const Badge = styled.span<{ $tone?: "arcane" | "ember" }>`
 `;
 
 const Material = styled.div`
-  font-size: 0.78rem;
+  font-size: 0.86rem;
   font-style: italic;
-  color: ${({ theme }) => theme.colors.textFaint};
+  color: ${({ theme }) => theme.colors.textDim};
   line-height: 1.35;
+`;
+
+export const SpellInfoButton = styled.button`
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  border: 1px solid ${({ theme }) => theme.colors.borderStrong};
+  background: rgba(0, 0, 0, 0.55);
+  color: ${({ theme }) => theme.colors.goldBright};
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 0.81rem;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  &:hover {
+    background: rgba(245, 196, 81, 0.18);
+    border-color: ${({ theme }) => theme.colors.gold};
+  }
 `;
 
 function MetaRow({ label, value }: { label: string; value?: ReactNode }) {
@@ -233,17 +255,19 @@ export function SpellTooltip({
   spell,
   index,
   block,
+  trigger = "hover",
   children,
 }: {
   spell?: SrdSpell;
   index?: string;
   block?: boolean;
+  trigger?: "hover" | "click";
   children: ReactNode;
 }) {
   const resolved = spell ?? (index ? spellMap.get(index) : undefined);
   if (!resolved) return <>{children}</>;
   return (
-    <Tooltip content={<SpellCard spell={resolved} />} block={block}>
+    <Tooltip content={<SpellCard spell={resolved} />} block={block} trigger={trigger}>
       {children}
     </Tooltip>
   );

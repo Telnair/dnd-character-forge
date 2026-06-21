@@ -9,7 +9,10 @@ const Rail = styled.nav`
   gap: 0.15rem;
 `;
 
-const Node = styled(motion.button)<{ $state: "done" | "active" | "todo" }>`
+const Node = styled(motion.button)<{
+  $state: "done" | "active" | "todo";
+  $locked?: boolean;
+}>`
   display: flex;
   align-items: center;
   gap: 0.85rem;
@@ -21,10 +24,12 @@ const Node = styled(motion.button)<{ $state: "done" | "active" | "todo" }>`
   padding: 0.55rem 0.7rem;
   text-align: left;
   width: 100%;
-  cursor: pointer;
-  transition: background 0.2s ease;
+  cursor: ${({ $locked }) => ($locked ? "not-allowed" : "pointer")};
+  opacity: ${({ $locked }) => ($locked ? 0.45 : 1)};
+  transition: background 0.2s ease, opacity 0.2s ease;
   &:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: ${({ $locked }) =>
+      $locked ? "transparent" : "rgba(255, 255, 255, 0.04)"};
   }
 `;
 
@@ -36,13 +41,17 @@ const Dot = styled.div<{ $state: "done" | "active" | "todo" }>`
   display: grid;
   place-items: center;
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 0.72rem;
+  font-size: 0.81rem;
   font-weight: 700;
   border: 1.5px solid
     ${({ theme, $state }) =>
       $state === "todo" ? theme.colors.textFaint : theme.colors.gold};
   color: ${({ theme, $state }) =>
-    $state === "active" ? theme.colors.ink : $state === "done" ? theme.colors.gold : theme.colors.textFaint};
+    $state === "active"
+      ? theme.colors.ink
+      : $state === "done"
+        ? theme.colors.gold
+        : theme.colors.textFaint};
   background: ${({ theme, $state }) =>
     $state === "active"
       ? `linear-gradient(135deg, ${theme.colors.goldBright}, ${theme.colors.ember})`
@@ -59,37 +68,44 @@ const Labels = styled.div`
 
 const Title = styled.span<{ $active: boolean }>`
   font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 0.86rem;
+  font-size: 0.95rem;
   color: ${({ theme, $active }) => ($active ? theme.colors.goldBright : theme.colors.text)};
 `;
 
 const Sub = styled.span`
   font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: 0.78rem;
-  color: ${({ theme }) => theme.colors.textFaint};
+  font-size: 0.81rem;
+  color: ${({ theme }) => theme.colors.textDim};
 `;
 
 export function ProgressRail() {
-  const { currentStep, activeSteps, setStep, stepIssues } = useCharacter();
+  const {
+    currentStep,
+    activeSteps,
+    setStep,
+    canNavigateToStep,
+    isStepComplete,
+  } = useCharacter();
   const steps = activeSteps();
-  const currentIdx = steps.findIndex((s) => s.id === currentStep);
 
-  const stateFor = (id: StepId, idx: number): "done" | "active" | "todo" => {
+  const stateFor = (id: StepId): "done" | "active" | "todo" => {
     if (id === currentStep) return "active";
-    if (idx < currentIdx && stepIssues(id).length === 0) return "done";
+    if (isStepComplete(id)) return "done";
     return "todo";
   };
 
   return (
     <Rail>
       {steps.map((s, idx) => {
-        const state = stateFor(s.id, idx);
+        const state = stateFor(s.id);
+        const navigable = canNavigateToStep(s.id);
         return (
           <Node
             key={s.id}
             $state={state}
-            onClick={() => setStep(s.id)}
-            whileTap={{ scale: 0.98 }}
+            $locked={!navigable}
+            onClick={() => navigable && setStep(s.id)}
+            whileTap={navigable ? { scale: 0.98 } : undefined}
           >
             <Dot $state={state}>{state === "done" ? "✦" : idx + 1}</Dot>
             <Labels>
