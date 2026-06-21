@@ -16,6 +16,15 @@ const ChoiceBlock = styled.div`
   margin-top: 1.6rem;
 `;
 
+const ChoicePrompt = styled.p`
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 1.05rem;
+  font-style: italic;
+  color: ${({ theme }) => theme.colors.textDim};
+  margin: 0 0 0.5rem;
+  line-height: 1.5;
+`;
+
 const OptionBtn = styled.button<{ $active: boolean }>`
   text-align: left;
   padding: 0.7rem 0.9rem;
@@ -72,7 +81,7 @@ function ChoiceGroups({
         if (labels.length === 0) return null;
         return (
           <ChoiceBlock key={i}>
-            <FieldLabel>{choice.desc ?? `Choose ${choice.choose ?? 1}`}</FieldLabel>
+            <ChoicePrompt>{choice.desc ?? `Choose ${choice.choose ?? 1}`}</ChoicePrompt>
             <OptionGroup>
               {labels.map((label: string, j: number) => {
                 const active = selected[i] === label;
