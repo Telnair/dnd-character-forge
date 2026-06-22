@@ -1,8 +1,66 @@
-import { classMap, proficiencies, proficiencyMap } from "@/data";
+import { classMap, proficiencies, proficiencyMap, spellMap, spells, spellsForClass } from "@/data";
+import type { Spell } from "@/data/types";
 
 export interface SkillChoiceSpec {
   choose: number;
   options: string[]; // skill indexes
+}
+
+/**
+ * Normalize a spell's display casting-time string ("Action", "1 Action", "Bonus
+ * Action, which you take…", "Reaction, …") to the kind a `spell_source.casting_time`
+ * filter uses. Plain prefix matching, not prose parsing.
+ */
+function castingTimeKind(ct: string): "action" | "bonus_action" | "reaction" | "other" {
+  if (ct === "Action" || ct === "1 Action") return "action";
+  if (ct.startsWith("Bonus Action")) return "bonus_action";
+  if (ct.startsWith("Reaction")) return "reaction";
+  return "other";
+}
+
+/** Leading distance in feet from a range string ("120 feet" → 120); Self/Touch → 0. */
+function rangeFeet(range: string): number {
+  return Number(/^(\d+)\s*(?:feet|foot|ft)/i.exec(range)?.[1] ?? 0);
+}
+
+/**
+ * The spell pool a `spell_source` selects, shared by every spells-type choice
+ * (feat spell picks and Eldritch-Invocation cantrip picks). Filters the spell
+ * list by `level`/`max_level`, then `classes`/`schools`/`ritual_only`/
+ * `casting_time`, then the invocation-eligibility predicates added for the 2024
+ * cantrip-modifying invocations (`requires_attack_roll`, `deals_damage`,
+ * `min_range_feet`), and unions in any explicit `also_spells`. `from_class_choice`
+ * draws from a class picked earlier in the same feat (Magic Initiate → chosenClass).
+ */
+export function eligibleSpells(src: any, chosenClass?: string): Spell[] {
+  if (!src) return [];
+  let pool: Spell[];
+  if (src.from_class_choice) {
+    pool = chosenClass ? spellsForClass(chosenClass) : [];
+  } else if (src.classes?.length) {
+    pool = spells.filter((s) => s.classes.some((c) => src.classes.includes(c.index)));
+  } else {
+    pool = spells;
+  }
+  if (src.level != null) pool = pool.filter((s) => s.level === src.level);
+  else if (src.max_level != null) pool = pool.filter((s) => s.level <= src.max_level);
+  if (src.schools?.length) pool = pool.filter((s) => src.schools.includes(s.school.index));
+  if (src.ritual_only) pool = pool.filter((s) => s.ritual);
+  if (src.casting_time)
+    pool = pool.filter((s) => castingTimeKind(s.casting_time) === src.casting_time);
+  if (src.requires_attack_roll) pool = pool.filter((s) => s.attack_type != null);
+  if (src.deals_damage) pool = pool.filter((s) => s.damage != null);
+  if (src.min_range_feet != null)
+    pool = pool.filter((s) => rangeFeet(s.range) >= src.min_range_feet);
+  if (src.also_spells?.length) {
+    const have = new Set(pool.map((s) => s.index));
+    for (const idx of src.also_spells as string[]) {
+      if (have.has(idx)) continue;
+      const sp = spellMap.get(idx);
+      if (sp) pool = [...pool, sp];
+    }
+  }
+  return pool;
 }
 
 export interface ProfChoiceSpec {

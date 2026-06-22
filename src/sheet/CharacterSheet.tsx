@@ -780,6 +780,7 @@ export const CharacterSheet = forwardRef<
                             key={c.index}
                             index={c.index}
                             access={slotAccess(c.index, ks.classIndex === "warlock")}
+                            enhancements={sheet.spellEnhancements[c.index]}
                           >
                             <Tag>{c.name}</Tag>
                           </SpellTooltip>

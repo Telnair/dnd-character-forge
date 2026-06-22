@@ -88,24 +88,33 @@ export function speciesTraitChoiceGroups(trait: Trait): TraitChoiceGroup[] {
 }
 
 /**
- * The feat pick a trait's `feat_options` offers (Human Versatile → "an Origin feat
- * of your choice"), or null if the trait grants none. The pool is the feats dataset
- * filtered to the category named in the choice's `resource_list_url` `?type=` param
- * (`origin`); a missing type means any feat.
+ * Enumerate the feats a `feats`-type Choice draws from — its `resource_list_url`'s
+ * `?type=` param names the feat category (`origin`, `general`, …); a missing type
+ * means any feat. Shared by the species-trait feat pick (Human Versatile) and the
+ * Eldritch-Invocation feat pick (Lessons of the First Ones → an Origin feat).
  */
-export function traitFeatOptions(
-  trait: Trait
+export function featOptionsFromChoice(
+  choice: { choose?: number; from?: { resource_list_url?: string } } | undefined
 ): { choose: number; feats: { index: string; name: string }[] } | null {
-  const fo = trait.feat_options as
-    | { choose?: number; from?: { resource_list_url?: string } }
-    | undefined;
-  if (!fo) return null;
-  const type = /[?&]type=([a-z-]+)/i.exec(fo.from?.resource_list_url ?? "")?.[1];
+  if (!choice) return null;
+  const type = /[?&]type=([a-z-]+)/i.exec(choice.from?.resource_list_url ?? "")?.[1];
   const pool = feats
     .filter((f) => (type ? f.type === type : true))
     .map((f) => ({ index: f.index, name: f.name }))
     .sort((a, b) => a.name.localeCompare(b.name));
-  return { choose: fo.choose ?? 1, feats: pool };
+  return { choose: choice.choose ?? 1, feats: pool };
+}
+
+/**
+ * The feat pick a trait's `feat_options` offers (Human Versatile → "an Origin feat
+ * of your choice"), or null if the trait grants none.
+ */
+export function traitFeatOptions(
+  trait: Trait
+): { choose: number; feats: { index: string; name: string }[] } | null {
+  return featOptionsFromChoice(
+    trait.feat_options as { choose?: number; from?: { resource_list_url?: string } } | undefined
+  );
 }
 
 /** Skill indexes a species trait grants outright or via the player's choice. */

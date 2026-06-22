@@ -1,4 +1,4 @@
-import { backgroundMap, featMap, spellMap } from "@/data";
+import { backgroundMap, featMap, featureMap, spellMap } from "@/data";
 import type { CharacterDraft } from "./types";
 
 /**
@@ -56,6 +56,20 @@ function heldFeatSelections(
     if (choice.kind === "feat" && choice.featIndex) {
       const feat = featMap.get(choice.featIndex);
       if (feat) out.push({ feat, picks: choice.featChoices ?? {} });
+    }
+  }
+  // Feats granted by an Eldritch Invocation's feats-type choice (Lessons of the
+  // First Ones → an Origin feat of your choice). The chosen feat is held like any
+  // other granted feat; its own nested picks live under the "<instance>::feat" key.
+  for (const instances of Object.values(draft.featureChoices ?? {})) {
+    for (const inst of instances) {
+      const feature = featureMap.get(inst.split("#")[0]);
+      const choices = (feature as { choices?: { type?: string }[] } | undefined)?.choices ?? [];
+      const ci = choices.findIndex((c) => c?.type === "feats");
+      if (ci < 0) continue;
+      const featIdx = draft.featureOptionChoices?.[inst]?.[ci]?.[0];
+      const feat = featIdx ? featMap.get(featIdx) : undefined;
+      if (feat) out.push({ feat, picks: draft.featureOptionChoices?.[`${inst}::feat`] ?? {} });
     }
   }
   return out;

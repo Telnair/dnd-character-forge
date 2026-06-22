@@ -14,7 +14,7 @@ import {
   type AbilityKey,
 } from "@/data";
 import { equipmentOptionLabel } from "./choices";
-import { featureChoiceSpecs } from "./featureChoices";
+import { baseOf, featureChoiceSpecs } from "./featureChoices";
 import { abilityMods, finalAbilities } from "./abilities";
 import { computeArmorClass } from "./armor";
 import { collectFeatGrants } from "./feats";
@@ -255,6 +255,53 @@ function computeSpeciesSpells(draft: CharacterDraft): DerivedSheet["speciesSpell
 }
 
 /**
+ * Human label for the pick a selected feature option resolved to — the cantrip a
+ * blast invocation improves (spells choice) or the Origin feat Lessons of the First
+ * Ones grants (feats choice). Returns the comma-joined names, or "" if unresolved.
+ */
+function optionPickLabel(
+  draft: CharacterDraft,
+  instanceKey: string,
+  choices?: any[]
+): string {
+  if (!choices?.length) return "";
+  const picks = draft.featureOptionChoices?.[instanceKey] ?? {};
+  const names: string[] = [];
+  choices.forEach((ch, i) => {
+    const lookup = ch?.type === "feats" ? featMap : spellMap;
+    for (const idx of picks[i] ?? []) names.push(lookup.get(idx)?.name ?? idx);
+  });
+  return names.join(", ");
+}
+
+/**
+ * Reverse of the invocation cantrip pick: spell index → names of the features
+ * pointed at it (Repelling Blast / Agonizing Blast / Eldritch Spear → the cantrip
+ * they improve). Lets the spell card show "Enhanced By: …" on the cantrip itself.
+ */
+function computeSpellEnhancements(draft: CharacterDraft): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const instances of Object.values(draft.featureChoices ?? {})) {
+    for (const inst of instances) {
+      const feature = featureMap.get(baseOf(inst));
+      const choices = (feature as { choices?: any[] } | undefined)?.choices;
+      if (!feature || !choices?.length) continue;
+      const picks = draft.featureOptionChoices?.[inst];
+      if (!picks) continue;
+      const name = feature.name.replace(/^Eldritch Invocation:\s*/, "");
+      choices.forEach((ch: any, ci: number) => {
+        if (ch?.type !== "spells") return;
+        for (const spellIdx of picks[ci] ?? []) {
+          const list = (out[spellIdx] ??= []);
+          if (!list.includes(name)) list.push(name);
+        }
+      });
+    }
+  }
+  return out;
+}
+
+/**
  * Spells granted by class/subclass feature options (`feature_specific.spellcasting`):
  * automatic feature grants (Great Old One's Eldritch Hex → Hex always prepared) plus
  * the player's chosen Eldritch Invocations (Armor of Shadows → Mage Armor at will).
@@ -303,9 +350,11 @@ function computeFeatureSpells(draft: CharacterDraft): DerivedSheet["featureSpell
     }
   }
   // Chosen feature options (invocations) — each pick is its own Feature record.
+  // Instance keys may carry a "#N" repeat suffix; `seen` dedupes spell grants per
+  // feature, so a repeated invocation surfaces its granted spell only once.
   for (const picks of Object.values(draft.featureChoices ?? {})) {
     for (const optIndex of picks) {
-      const feature = featureMap.get(optIndex);
+      const feature = featureMap.get(baseOf(optIndex));
       if (feature?.class?.index) push(feature, feature.class.index);
     }
   }
@@ -379,18 +428,22 @@ export function deriveSheet(draft: CharacterDraft): DerivedSheet {
   }
 
   // Chosen feature options (invocations, fighting style, metamagic, maneuvers)
-  // as their own sheet entries, beside the parent feature's blurb.
+  // as their own sheet entries, beside the parent feature's blurb. A selected
+  // option that carries its own pick (Repelling Blast → a cantrip, Lessons of the
+  // First Ones → an Origin feat) shows the resolved pick in its name; a Repeatable
+  // option appears once per instance.
   for (const spec of featureChoiceSpecs(draft)) {
-    for (const optIndex of spec.selected) {
-      const opt = spec.options.find((o) => o.index === optIndex);
-      if (opt)
-        features.push({
-          name: opt.name,
-          source: `${spec.className} · ${spec.featureName}`,
-          desc: opt.desc,
-          activation: opt.activation,
-          recharge: opt.recharge,
-        });
+    for (const inst of spec.selected) {
+      const opt = spec.options.find((o) => o.index === baseOf(inst));
+      if (!opt) continue;
+      const pick = optionPickLabel(draft, inst, opt.choices);
+      features.push({
+        name: pick ? `${opt.name} (${pick})` : opt.name,
+        source: `${spec.className} · ${spec.featureName}`,
+        desc: opt.desc,
+        activation: opt.activation,
+        recharge: opt.recharge,
+      });
     }
   }
 
@@ -451,6 +504,7 @@ export function deriveSheet(draft: CharacterDraft): DerivedSheet {
     speciesSpells: computeSpeciesSpells(draft),
     featSpells: collectFeatGrants(draft).spells,
     featureSpells: computeFeatureSpells(draft),
+    spellEnhancements: computeSpellEnhancements(draft),
     equipment: equipmentItems,
     personality: draft.personality,
     ideals: draft.ideals,

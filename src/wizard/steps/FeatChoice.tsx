@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { spellMap, spells, spellsForClass } from "@/data";
+import { eligibleSpells } from "@/engine";
 import { ScrollArea } from "@/ui/primitives";
 import { SpellTooltip, slotAccess } from "@/ui/SpellCard";
 import { Block, FieldLabel, HelpText, Chip, ChipRow, Counter } from "../common";
@@ -9,18 +9,6 @@ export function refOptions(choice: any): { index: string; name: string }[] {
   return (choice?.from?.options ?? [])
     .filter((o: any) => o?.option_type === "reference" && o?.item)
     .map((o: any) => ({ index: o.item.index, name: o.item.name }));
-}
-
-/**
- * Normalize a spell's display casting-time string ("Action", "1 Action", "Bonus
- * Action, which you take…", "Reaction, which you take…") to the kind a
- * `spell_source.casting_time` filter uses. Plain prefix matching, not prose parsing.
- */
-function castingTimeKind(ct: string): "action" | "bonus_action" | "reaction" | "other" {
-  if (ct === "Action" || ct === "1 Action") return "action";
-  if (ct.startsWith("Bonus Action")) return "bonus_action";
-  if (ct.startsWith("Reaction")) return "reaction";
-  return "other";
 }
 
 /**
@@ -52,33 +40,7 @@ export function FeatChoice({
   const src = choice.spell_source;
   const isSpellPick = options.length === 0 && choice.type === "spells";
   if (isSpellPick && src) {
-    const classes = src.classes;
-    const schools = src.schools;
-    let pool: typeof spells;
-    if (src.from_class_choice) {
-      pool = chosenClass ? spellsForClass(chosenClass) : [];
-    } else if (classes?.length) {
-      pool = spells.filter((s) => s.classes.some((c) => classes.includes(c.index)));
-    } else {
-      pool = spells;
-    }
-    if (src.level != null) pool = pool.filter((s) => s.level === src.level);
-    else if (src.max_level != null) pool = pool.filter((s) => s.level <= src.max_level);
-    if (schools?.length) pool = pool.filter((s) => schools.includes(s.school.index));
-    if (src.ritual_only) pool = pool.filter((s) => s.ritual);
-    if (src.casting_time)
-      pool = pool.filter((s) => castingTimeKind(s.casting_time) === src.casting_time);
-    // Explicit extra spells (a feat-specific "or one of these" list, e.g. Boon of
-    // Siberys's Dragonmark table), unioned on top of the filtered pool.
-    if (src.also_spells?.length) {
-      const have = new Set(pool.map((s) => s.index));
-      for (const idx of src.also_spells as string[]) {
-        if (have.has(idx)) continue;
-        const sp = spellMap.get(idx);
-        if (sp) pool = [...pool, sp];
-      }
-    }
-    options = pool
+    options = eligibleSpells(src, chosenClass)
       .map((s) => ({ index: s.index, name: s.name }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }

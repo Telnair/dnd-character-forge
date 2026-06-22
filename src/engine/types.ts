@@ -79,9 +79,23 @@ export interface CharacterDraft {
   /**
    * Class/subclass feature-option picks (Eldritch Invocations, Fighting Style,
    * Metamagic, Battle Master Maneuvers), keyed by the granting feature's index;
-   * values are the chosen option indexes. See engine/featureChoices.ts.
+   * values are the chosen option *instance keys* — the option index, suffixed
+   * "#2", "#3", … for repeated picks of a Repeatable option (Repelling Blast,
+   * Lessons of the First Ones). See engine/featureChoices.ts.
    */
   featureChoices?: Record<string, string[]>;
+
+  /**
+   * Sub-choices for a selected feature option that carries its own `choices`
+   * (Repelling/Agonizing/Eldritch Spear → "choose one of your known Warlock
+   * cantrips that …"; Lessons of the First Ones → "choose an Origin feat").
+   * Keyed by the option's instance key (matching a value in `featureChoices`),
+   * then by the choice index — mirroring a feat's `featChoices`. A feats-type
+   * pick records the chosen feat under its choice index; that feat is then held
+   * like other granted feats, so its OWN nested picks live under the companion
+   * key "<instanceKey>::feat".
+   */
+  featureOptionChoices?: Record<string, Record<number, string[]>>;
 
   personality?: string;
   ideals?: string;
@@ -240,6 +254,13 @@ export interface DerivedSheet {
       selfOnly?: boolean;
     }[];
   }[];
+  /**
+   * Per-spell enhancement labels: spell index → names of features that improve it
+   * (the cantrip-modifying Eldritch Invocations — Repelling Blast, Agonizing Blast,
+   * Eldritch Spear — that the player pointed at that cantrip). Surfaced on the spell
+   * card so the cantrip shows what's boosting it.
+   */
+  spellEnhancements: Record<string, string[]>;
   equipment: EquipmentItem[];
   personality?: string;
   ideals?: string;

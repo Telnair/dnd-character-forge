@@ -258,7 +258,17 @@ function MetaRow({ label, value }: { label: string; value?: ReactNode }) {
  * save, casting time, duration, components and concentration/ritual flags.
  * Pure — pass it an `SrdSpell`. For a hover trigger use {@link SpellTooltip}.
  */
-export function SpellCard({ spell, access }: { spell: SrdSpell; access?: SpellAccess }) {
+export function SpellCard({
+  spell,
+  access,
+  enhancements,
+}: {
+  spell: SrdSpell;
+  access?: SpellAccess;
+  /** Names of features improving this spell for the character (e.g. the Eldritch
+   *  Invocations Repelling Blast / Agonizing Blast targeting this cantrip). */
+  enhancements?: string[];
+}) {
   const dmgType = spell.damage?.damage_type;
   const dmgDice =
     baseDice(spell.damage?.damage_at_slot_level, spell.level) ??
@@ -298,6 +308,7 @@ export function SpellCard({ spell, access }: { spell: SrdSpell; access?: SpellAc
         <MetaRow label="Area" value={area} />
         <MetaRow label="Duration" value={spell.duration} />
         <MetaRow label="Components" value={spell.components?.join(", ")} />
+        <MetaRow label="Enhanced By" value={enhancements?.length ? enhancements.join(", ") : undefined} />
       </Meta>
 
       {spell.material && <Material>{spell.material}</Material>}
@@ -335,6 +346,7 @@ export function SpellTooltip({
   spell,
   index,
   access,
+  enhancements,
   block,
   trigger = "hover",
   children,
@@ -343,6 +355,8 @@ export function SpellTooltip({
   index?: string;
   /** "How this character casts it" — the pinned footer (cast time / cadence / cost). */
   access?: SpellAccess;
+  /** Features improving this spell for the character (Repelling/Agonizing Blast, …). */
+  enhancements?: string[];
   block?: boolean;
   trigger?: "hover" | "click";
   children: ReactNode;
@@ -350,7 +364,11 @@ export function SpellTooltip({
   const resolved = spell ?? (index ? spellMap.get(index) : undefined);
   if (!resolved) return <>{children}</>;
   return (
-    <Tooltip content={<SpellCard spell={resolved} access={access} />} block={block} trigger={trigger}>
+    <Tooltip
+      content={<SpellCard spell={resolved} access={access} enhancements={enhancements} />}
+      block={block}
+      trigger={trigger}
+    >
       {children}
     </Tooltip>
   );

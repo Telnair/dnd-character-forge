@@ -10,10 +10,29 @@
 //   • Expertise — `expertise_options` → the skills step.
 
 import { classMap, featMap, featureMap, proficiencyMap, spellMap, subclassMap } from "@/data";
+import { eligibleSpells } from "./choices";
 import { computeSavingThrows, computeSkills } from "./proficiency";
 import type { CharacterDraft, ClassEntry } from "./types";
 
 type FeatureT = NonNullable<ReturnType<typeof featureMap.get>>;
+
+/**
+ * A selected option is stored as an *instance key*: the option index, suffixed
+ * "#2", "#3", … for repeated picks of a Repeatable option (Repelling Blast).
+ * `baseOf` recovers the option index from an instance key.
+ */
+export function baseOf(instanceKey: string): string {
+  return instanceKey.split("#")[0];
+}
+
+/** The next free instance key for `base` given the keys already taken. */
+export function nextInstanceKey(base: string, taken: string[]): string {
+  if (!taken.includes(base)) return base;
+  for (let n = 2; ; n++) {
+    const k = `${base}#${n}`;
+    if (!taken.includes(k)) return k;
+  }
+}
 
 /**
  * Features whose pick-count grows with level via a `class_specific` column in
@@ -51,6 +70,10 @@ export interface FeatureOptionView {
   /** Why it's locked (e.g. "Requires level 5"), when `available` is false. */
   reason?: string;
   selected: boolean;
+  /** True when the option is Repeatable — it may be taken more than once. */
+  repeatable?: boolean;
+  /** The option's own in-feature picks (e.g. Repelling Blast → choose a cantrip). */
+  choices?: any[];
 }
 
 export interface FeatureChoiceSpec {
@@ -87,6 +110,8 @@ function resolveOption(index: string): {
   prerequisites: FeaturePrereq[];
   activation?: FeatureT["activation"];
   recharge?: FeatureT["recharge"];
+  repeatable?: boolean;
+  choices?: any[];
 } {
   const f = featureMap.get(index);
   if (f) {
@@ -96,6 +121,8 @@ function resolveOption(index: string): {
       prerequisites: (f.prerequisites ?? []) as FeaturePrereq[],
       activation: f.activation,
       recharge: f.recharge,
+      repeatable: (f as { repeatable?: boolean }).repeatable,
+      choices: (f as { choices?: any[] }).choices,
     };
   }
   const ft = featMap.get(index);
@@ -278,7 +305,10 @@ function specForFeature(
       recharge: ent.recharge,
       available: reason == null,
       reason: reason ?? undefined,
-      selected: stored.includes(index),
+      // "selected" = at least one instance of this option is picked.
+      selected: stored.some((s) => baseOf(s) === index),
+      repeatable: ent.repeatable,
+      choices: ent.choices,
     };
   });
 
@@ -292,7 +322,8 @@ function specForFeature(
     choose,
     kind,
     options,
-    selected: stored.filter((s) => exists.has(s)),
+    // Instance keys (with "#N" suffixes) whose base option still exists.
+    selected: stored.filter((s) => exists.has(baseOf(s))),
   };
 }
 
@@ -329,11 +360,15 @@ export function featureChoiceSpecs(draft: CharacterDraft): FeatureChoiceSpec[] {
   const owner = new Map<string, string>();
   for (const s of specs) {
     if (s.kind === "benefit") continue; // per-activation menus don't share a pool
-    for (const sel of s.selected) if (!owner.has(sel)) owner.set(sel, s.key);
+    for (const sel of s.selected) {
+      const b = baseOf(sel);
+      if (!owner.has(b)) owner.set(b, s.key);
+    }
   }
   for (const s of specs) {
     if (s.kind === "benefit") continue;
     for (const o of s.options) {
+      if (o.repeatable) continue; // a Repeatable option may be taken again, here or elsewhere
       const own = owner.get(o.index);
       if (own && own !== s.key && o.available) {
         o.available = false;
@@ -345,10 +380,94 @@ export function featureChoiceSpecs(draft: CharacterDraft): FeatureChoiceSpec[] {
   return specs;
 }
 
+/** Cantrips the character chose for a given class. */
+function knownCantripsForClass(draft: CharacterDraft, classIndex: string): Set<string> {
+  const set = new Set<string>();
+  for (const c of draft.classes) {
+    if (c.classIndex !== classIndex) continue;
+    for (const s of c.cantrips ?? []) set.add(s);
+  }
+  return set;
+}
+
 /**
- * Drop stored picks that exceed the cap or whose prerequisites are no longer
- * met (level lowered, or a prerequisite pick removed), iterating to a fixpoint
- * so removing a Pact Boon also clears the invocations gated on it.
+ * The cantrips selectable for an invocation's "choose one of your known <Class>
+ * cantrips that …" pick: the character's known cantrips of that class, narrowed by
+ * the choice's `spell_source` eligibility (level/attack-roll/damage/range). Empty
+ * when the character knows no eligible cantrip yet — the picker then shows a note
+ * and the choice doesn't block the step.
+ */
+export function cantripChoiceOptions(
+  draft: CharacterDraft,
+  classIndex: string,
+  src: any
+): { index: string; name: string }[] {
+  const known = knownCantripsForClass(draft, classIndex);
+  return eligibleSpells(src)
+    .filter((s) => known.has(s.index))
+    .map((s) => ({ index: s.index, name: s.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Whether a held feat's own `choices` are each satisfied to their `choose` count. */
+export function featPicksComplete(feat: any, picks: Record<number, string[]>): boolean {
+  const choices: any[] = feat?.choices ?? [];
+  for (let i = 0; i < choices.length; i++) {
+    if ((picks[i]?.length ?? 0) < (choices[i]?.choose ?? 1)) return false;
+  }
+  return true;
+}
+
+/** Whether a selected option's own `choices` (cantrip / Origin feat) are resolved. */
+function instanceChoicesComplete(
+  draft: CharacterDraft,
+  classIndex: string,
+  instanceKey: string,
+  choices: any[]
+): boolean {
+  const picks = draft.featureOptionChoices?.[instanceKey] ?? {};
+  for (let i = 0; i < choices.length; i++) {
+    const ch = choices[i];
+    const need = ch?.choose ?? 1;
+    const got = picks[i] ?? [];
+    if (ch?.type === "spells") {
+      const opts = cantripChoiceOptions(draft, classIndex, ch.spell_source);
+      if (opts.length === 0) continue; // nothing eligible to pick yet — don't block
+      const set = new Set(opts.map((o) => o.index));
+      if (got.filter((g) => set.has(g)).length < need) return false;
+    } else if (ch?.type === "feats") {
+      if (got.length < need) return false;
+      const feat = got[0] ? featMap.get(got[0]) : undefined;
+      const nested = draft.featureOptionChoices?.[`${instanceKey}::feat`] ?? {};
+      if (feat && !featPicksComplete(feat, nested)) return false;
+    } else if (got.length < need) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** Remove sub-choice records whose owning option instance is no longer selected. */
+function pruneOrphanOptionChoices(draft: CharacterDraft): void {
+  if (!draft.featureOptionChoices) return;
+  const valid = new Set<string>();
+  for (const keys of Object.values(draft.featureChoices ?? {})) {
+    for (const k of keys) {
+      valid.add(k);
+      valid.add(`${k}::feat`);
+    }
+  }
+  for (const k of Object.keys(draft.featureOptionChoices)) {
+    if (!valid.has(k)) delete draft.featureOptionChoices[k];
+  }
+}
+
+/**
+ * Drop stored picks that exceed the cap or whose prerequisites are no longer met
+ * (level lowered, or a prerequisite pick removed), iterating to a fixpoint so
+ * removing a Pact Boon also clears the invocations gated on it. Instance-aware:
+ * keeps "#N" repeats of Repeatable options, collapses accidental duplicates of
+ * non-repeatable ones, and prunes orphaned per-option sub-choices.
  */
 export function normalizeFeatureChoices(draft: CharacterDraft): void {
   if (!draft.featureChoices) return;
@@ -356,29 +475,92 @@ export function normalizeFeatureChoices(draft: CharacterDraft): void {
     let changed = false;
     for (const spec of featureChoiceSpecs(draft)) {
       const stored = draft.featureChoices[spec.key] ?? [];
-      const kept = stored
-        .filter((s) => spec.options.some((o) => o.index === s && o.available))
-        .slice(0, spec.choose);
-      if (kept.length !== stored.length) {
-        draft.featureChoices[spec.key] = kept;
+      const byBase = new Map(spec.options.map((o) => [o.index, o]));
+      const seen = new Set<string>();
+      const kept: string[] = [];
+      for (const s of stored) {
+        const opt = byBase.get(baseOf(s));
+        if (!opt || !opt.available) continue;
+        if (!opt.repeatable) {
+          if (seen.has(opt.index)) continue; // collapse duplicate non-repeatable picks
+          seen.add(opt.index);
+        }
+        kept.push(s);
+      }
+      const capped = kept.slice(0, spec.choose);
+      if (capped.length !== stored.length || capped.some((v, i) => v !== stored[i])) {
+        draft.featureChoices[spec.key] = capped;
         changed = true;
       }
     }
     if (!changed) break;
   }
+  pruneOrphanOptionChoices(draft);
 }
 
-/** Step validation: every choice must have exactly its quota of valid picks. */
+/**
+ * Step validation: every choice must have its quota of valid picks, and every
+ * selected option that carries its own `choices` (a cantrip to improve, an Origin
+ * feat) must have them resolved.
+ */
 export function validateFeatures(draft: CharacterDraft): string[] {
   const issues: string[] = [];
   for (const spec of featureChoiceSpecs(draft)) {
     if (spec.optional) continue; // benefit menus are per-activation; never required
     const valid = spec.selected.filter((s) =>
-      spec.options.some((o) => o.index === s && o.available)
+      spec.options.some((o) => o.index === baseOf(s) && o.available)
     );
     if (valid.length !== spec.choose) {
       issues.push(`${spec.className}: complete ${spec.featureName} (choose ${spec.choose}).`);
+      continue;
+    }
+    for (const inst of valid) {
+      const opt = spec.options.find((o) => o.index === baseOf(inst));
+      if (!opt?.choices?.length) continue;
+      if (!instanceChoicesComplete(draft, spec.classIndex, inst, opt.choices)) {
+        issues.push(`${spec.className}: finish your ${opt.name} choice.`);
+      }
+    }
+    // A Repeatable option taken more than once must pick a *different* cantrip /
+    // feat each time ("Each time you do so, choose a different eligible cantrip").
+    for (const name of repeatedPickConflicts(draft, spec, valid)) {
+      issues.push(`${spec.className}: each ${name} must choose a different option.`);
     }
   }
   return issues;
+}
+
+/**
+ * Names of Repeatable options whose instances collide on a pick — the same cantrip
+ * (or feat) chosen for two repeats of one invocation. Distinctness is per option:
+ * Agonizing Blast and Repelling Blast may both target the same cantrip.
+ */
+function repeatedPickConflicts(
+  draft: CharacterDraft,
+  spec: FeatureChoiceSpec,
+  valid: string[]
+): string[] {
+  const byBase = new Map<string, string[]>();
+  for (const inst of valid) {
+    const b = baseOf(inst);
+    (byBase.get(b) ?? byBase.set(b, []).get(b)!).push(inst);
+  }
+  const conflicts: string[] = [];
+  for (const [base, insts] of byBase) {
+    if (insts.length < 2) continue;
+    const opt = spec.options.find((o) => o.index === base);
+    if (!opt?.choices?.length) continue;
+    let collides = false;
+    for (let ci = 0; ci < opt.choices.length && !collides; ci++) {
+      const seen = new Set<string>();
+      for (const inst of insts) {
+        for (const p of draft.featureOptionChoices?.[inst]?.[ci] ?? []) {
+          if (seen.has(p)) collides = true;
+          seen.add(p);
+        }
+      }
+    }
+    if (collides) conflicts.push(opt.name);
+  }
+  return conflicts;
 }
