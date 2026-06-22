@@ -112,15 +112,6 @@ export function Tooltip({
 
   useEffect(() => clearTimers, [clearTimers]);
 
-  useEffect(() => {
-    if (trigger !== "click" || !open) return;
-    const onDocClick = (e: MouseEvent) => {
-      if (!wrapperRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [trigger, open]);
-
   const { refs, floatingStyles, isPositioned } = useFloating({
     open,
     placement: "top",
@@ -140,6 +131,22 @@ export function Tooltip({
       }),
     ],
   });
+
+  useEffect(() => {
+    if (trigger !== "click" || !open) return;
+    const onDocClick = (e: MouseEvent) => {
+      const target = e.target as Node;
+      // The bubble is portaled to document.body, so it isn't inside the
+      // wrapper — check it explicitly or clicks within it count as "outside".
+      if (
+        !wrapperRef.current?.contains(target) &&
+        !refs.floating.current?.contains(target)
+      )
+        setOpen(false);
+    };
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, [trigger, open, refs.floating]);
 
   if (!content) return <>{children}</>;
 
