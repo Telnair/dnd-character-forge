@@ -1,11 +1,12 @@
 import styled from "styled-components";
-import { raceMap, races, subraceMap, traitMap } from "@/data";
+import { featMap, raceMap, races, subraceMap, traitMap } from "@/data";
 import type { Trait } from "@/data/types";
-import { speciesTraitChoiceGroups } from "@/engine";
+import { speciesTraitChoiceGroups, traitFeatOptions } from "@/engine";
 import { useCharacter } from "@/store/characterStore";
-import { Grid, Pill, SelectCard, Divider } from "@/ui/primitives";
+import { Grid, Pill, ScrollArea, SelectCard, Divider } from "@/ui/primitives";
 import { StepIntro, FieldLabel, HelpText, Counter } from "../common";
 import { ClassIcon } from "@/assets/ClassIcon";
+import { FeatChoice } from "./FeatChoice";
 
 const CardTitle = styled.div`
   font-family: ${({ theme }) => theme.fonts.display};
@@ -97,6 +98,44 @@ export function RaceStep() {
       d.raceIndex = index;
       d.subraceIndex = undefined;
       d.speciesTraitChoices = {};
+      d.traitFeatChoices = {};
+    });
+
+  // Pick (or toggle off) the Origin feat a trait grants; switching feats resets
+  // its sub-choices.
+  const selectTraitFeat = (traitIndex: string, featIndex: string) =>
+    update((d) => {
+      d.traitFeatChoices ??= {};
+      const cur = d.traitFeatChoices[traitIndex];
+      d.traitFeatChoices[traitIndex] =
+        cur?.featIndex === featIndex ? {} : { featIndex, featChoices: {} };
+    });
+
+  // Toggle one of the chosen feat's own structured choices (mirrors the background
+  // Origin-feat picker, including invalidating spell picks when their class changes).
+  const toggleTraitFeatChoice = (
+    traitIndex: string,
+    choiceIdx: number,
+    option: string,
+    choose: number
+  ) =>
+    update((d) => {
+      d.traitFeatChoices ??= {};
+      const sel = (d.traitFeatChoices[traitIndex] ??= {});
+      sel.featChoices ??= {};
+      const arr = (sel.featChoices[choiceIdx] ??= []);
+      const i = arr.indexOf(option);
+      if (i >= 0) arr.splice(i, 1);
+      else if (choose === 1) sel.featChoices[choiceIdx] = [option];
+      else if (arr.length < choose) arr.push(option);
+      const feat = sel.featIndex ? featMap.get(sel.featIndex) : undefined;
+      const defs: any[] = (feat as any)?.choices ?? [];
+      if (defs[choiceIdx]?.type === "classes") {
+        defs.forEach((spec: any, di: number) => {
+          if (spec?.type === "spells" && spec?.spell_source?.from_class_choice)
+            sel.featChoices![di] = [];
+        });
+      }
     });
 
   // A trait's groups share one picks array; `groupOptions` scopes the per-group
@@ -236,6 +275,65 @@ export function RaceStep() {
                       </div>
                     );
                   })}
+                  {(() => {
+                    const featOpts = traitFeatOptions(trait);
+                    if (!featOpts) return null;
+                    const sel = draft.traitFeatChoices?.[trait.index];
+                    const chosenFeat = sel?.featIndex
+                      ? featMap.get(sel.featIndex)
+                      : undefined;
+                    // The class chosen inside the feat (drives Magic Initiate's spell list).
+                    const featChoiceDefs: any[] = (chosenFeat as any)?.choices ?? [];
+                    const classChoiceIdx = featChoiceDefs.findIndex(
+                      (c) => c?.type === "classes"
+                    );
+                    const chosenClass =
+                      classChoiceIdx >= 0
+                        ? sel?.featChoices?.[classChoiceIdx]?.[0]
+                        : undefined;
+                    return (
+                      <div>
+                        <FieldLabel style={{ marginTop: "0.6rem" }}>
+                          Choose {featOpts.choose} Origin feat{" "}
+                          <Counter $done={!!chosenFeat}>
+                            {chosenFeat ? 1 : 0}/{featOpts.choose}
+                          </Counter>
+                        </FieldLabel>
+                        <ScrollArea $max="190px">
+                          <Row>
+                            {featOpts.feats.map((f) => (
+                              <ChipBtn
+                                key={f.index}
+                                $active={sel?.featIndex === f.index}
+                                onClick={() => selectTraitFeat(trait.index, f.index)}
+                              >
+                                {f.name}
+                              </ChipBtn>
+                            ))}
+                          </Row>
+                        </ScrollArea>
+                        {chosenFeat && (
+                          <div style={{ marginTop: "0.4rem" }}>
+                            {chosenFeat.desc.map((d, i) => (
+                              <HelpText key={i}>{d}</HelpText>
+                            ))}
+                            {featChoiceDefs.map((c, i) => (
+                              <FeatChoice
+                                key={i}
+                                choice={c}
+                                idx={i}
+                                selected={sel?.featChoices?.[i] ?? []}
+                                onToggle={(ci, option, choose) =>
+                                  toggleTraitFeatChoice(trait.index, ci, option, choose)
+                                }
+                                chosenClass={chosenClass}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </TraitBox>
               );
             })}

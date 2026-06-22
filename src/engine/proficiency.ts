@@ -3,6 +3,7 @@ import {
   SKILL_ABILITY,
   backgroundMap,
   classMap,
+  feats,
   languageMap,
   proficiencies,
   proficiencyMap,
@@ -84,6 +85,27 @@ export function speciesTraitChoiceGroups(trait: Trait): TraitChoiceGroup[] {
     groups.push(expandTraitChoice(trait.trait_specific.subtrait_options));
   for (const c of trait.proficiency_choices ?? []) groups.push(expandTraitChoice(c));
   return groups;
+}
+
+/**
+ * The feat pick a trait's `feat_options` offers (Human Versatile → "an Origin feat
+ * of your choice"), or null if the trait grants none. The pool is the feats dataset
+ * filtered to the category named in the choice's `resource_list_url` `?type=` param
+ * (`origin`); a missing type means any feat.
+ */
+export function traitFeatOptions(
+  trait: Trait
+): { choose: number; feats: { index: string; name: string }[] } | null {
+  const fo = trait.feat_options as
+    | { choose?: number; from?: { resource_list_url?: string } }
+    | undefined;
+  if (!fo) return null;
+  const type = /[?&]type=([a-z-]+)/i.exec(fo.from?.resource_list_url ?? "")?.[1];
+  const pool = feats
+    .filter((f) => (type ? f.type === type : true))
+    .map((f) => ({ index: f.index, name: f.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return { choose: fo.choose ?? 1, feats: pool };
 }
 
 /** Skill indexes a species trait grants outright or via the player's choice. */

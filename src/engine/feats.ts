@@ -46,6 +46,12 @@ function heldFeatSelections(
     const feat = featMap.get(bgFeatIdx);
     if (feat) out.push({ feat, picks: draft.originFeatChoices ?? {} });
   }
+  // Feats a species trait grants by choice (Human Versatile → an Origin feat).
+  for (const sel of Object.values(draft.traitFeatChoices ?? {})) {
+    if (!sel?.featIndex) continue;
+    const feat = featMap.get(sel.featIndex);
+    if (feat) out.push({ feat, picks: sel.featChoices ?? {} });
+  }
   for (const choice of Object.values(draft.asiChoices ?? {})) {
     if (choice.kind === "feat" && choice.featIndex) {
       const feat = featMap.get(choice.featIndex);

@@ -366,6 +366,17 @@ export function deriveSheet(draft: CharacterDraft): DerivedSheet {
       desc: feat?.desc ?? [],
     });
   }
+  // A species trait can grant a chosen Origin feat (Human Versatile).
+  for (const trait of speciesTraitList(draft)) {
+    const featIndex = draft.traitFeatChoices?.[trait.index]?.featIndex;
+    const feat = featIndex ? featMap.get(featIndex) : undefined;
+    if (feat)
+      features.push({
+        name: feat.name,
+        source: `${speciesName} · ${trait.name} (Origin Feat)`,
+        desc: feat.desc ?? [],
+      });
+  }
 
   // Chosen feature options (invocations, fighting style, metamagic, maneuvers)
   // as their own sheet entries, beside the parent feature's blurb.

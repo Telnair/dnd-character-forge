@@ -41,6 +41,16 @@ export interface CharacterDraft {
   subraceIndex?: string;
   /** Selections for species/subspecies trait choices, keyed by trait index. */
   speciesTraitChoices?: Record<string, string[]>;
+  /**
+   * Feats granted by a species trait's `feat_options` (Human's Versatile → "an
+   * Origin feat of your choice"), keyed by trait index: the picked feat plus its
+   * own structured `choices` (e.g. Skilled's three skill/tool picks). Held like the
+   * background Origin feat, so its grants flow through `collectFeatGrants`.
+   */
+  traitFeatChoices?: Record<
+    string,
+    { featIndex?: string; featChoices?: Record<number, string[]> }
+  >;
 
   classes: ClassEntry[];
 

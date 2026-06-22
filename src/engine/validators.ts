@@ -9,7 +9,12 @@ import { STANDARD_ARRAY } from "./config";
 import { pointBuyRemaining } from "./abilities";
 import { classOtherProfChoices, classSkillChoice } from "./choices";
 import { validateFeatures } from "./featureChoices";
-import { expertiseSlots, speciesTraitChoiceGroups, speciesTraitList } from "./proficiency";
+import {
+  expertiseSlots,
+  speciesTraitChoiceGroups,
+  speciesTraitList,
+  traitFeatOptions,
+} from "./proficiency";
 import { subclassUnlockedFor, allAsiOpportunities } from "./progression";
 import {
   cantripsKnownFor,
@@ -49,6 +54,21 @@ export function validateRace(d: CharacterDraft): string[] {
         group.options.some((o) => o.index === p)
       ).length;
       if (have !== group.choose) issues.push(`${trait.name}: choose ${group.choose}.`);
+    }
+    // A feat-granting trait (Human Versatile): the feat must be picked and its own
+    // structured choices completed.
+    if (traitFeatOptions(trait)) {
+      const sel = d.traitFeatChoices?.[trait.index];
+      const feat = sel?.featIndex ? featMap.get(sel.featIndex) : undefined;
+      if (!feat) {
+        issues.push(`${trait.name}: choose a feat.`);
+      } else {
+        ((feat as any).choices ?? []).forEach((c: any, i: number) => {
+          const need = c.choose ?? 0;
+          const have = sel?.featChoices?.[i]?.length ?? 0;
+          if (have !== need) issues.push(`${feat.name}: complete choice ${i + 1}.`);
+        });
+      }
     }
   }
   return issues;
