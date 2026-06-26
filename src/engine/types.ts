@@ -202,6 +202,8 @@ export interface DerivedSheet {
   initiative: number;
   armorClass: number;
   acNote: string;
+  /** Warning when worn armor/shields aren't trained with (Disadvantage on STR/DEX, no spells). */
+  armorWarning?: string;
   languages: string[];
   proficiencies: { weapons: string[]; armor: string[]; tools: string[] };
   /** 2024 weapon mastery: the weapons whose Mastery property the character uses. */
@@ -251,6 +253,8 @@ export interface DerivedSheet {
     attunement: boolean;
     /** Human-readable effect summary (e.g. "+1 AC", "+2 attack & damage", "+2d6 Fire"). */
     effect: string;
+    /** True for an armor/shield the character lacks training with. */
+    untrained?: boolean;
     /** Weapon magic item: the chosen base weapon (equipment index), if any. */
     baseWeapon?: string;
     /** True when a base weapon must be chosen but none is set. */

@@ -1,8 +1,12 @@
 import { equipmentMap, magicItemMap } from "@/data";
 import type { MagicItem } from "@/data/types";
+import { armorProficiencyIndexes, proficientWithArmorItem } from "./armor";
 import type { CharacterDraft, DerivedSheet, EquipmentItem } from "./types";
 
 type Combat = NonNullable<MagicItem["combat"]>;
+
+/** Magic-item categories that are consumed, not worn/wielded — kept out of the Worn section. */
+const NON_EQUIPPABLE_CATEGORIES = new Set(["potions", "scrolls"]);
 
 function categoryIndexes(index?: string): string[] {
   if (!index) return [];
@@ -59,10 +63,15 @@ export function computeWornItems(
 ): DerivedSheet["wornItems"] {
   const out: DerivedSheet["wornItems"] = [];
   const ps = draft.playState;
+  const profIdx = armorProficiencyIndexes(draft);
 
   (draft.magicItems ?? []).forEach((owned, ref) => {
     const mi = magicItemMap.get(owned.index);
     if (!mi) return;
+    // Consumables aren't worn/wielded — a Potion / Oil / Scroll lives in the inventory
+    // only, not the Equipped / Worn section. (Other categories — weapons, armor, rings,
+    // wondrous items, wands, staffs — are wearable/wieldable/attunable.)
+    if (NON_EQUIPPABLE_CATEGORIES.has(mi.equipment_category.index)) return;
     const c = mi.combat;
     const kind = c?.applies_to ?? "other";
     const isWeapon = kind === "weapon" || kind === "ammunition";
@@ -79,6 +88,8 @@ export function computeWornItems(
       needsBase: isWeapon && !owned.baseWeapon,
       needsBonus: !!c?.scales_with_rarity && owned.bonus == null,
       bonus: owned.bonus,
+      // A magic shield is still a shield — it needs shield training.
+      untrained: kind === "shield" && !profIdx.has("shields"),
     });
   });
 
@@ -99,6 +110,7 @@ export function computeWornItems(
       effect: shield
         ? `${fmt(equipmentMap.get(item.index)?.armor_class?.base ?? 2)} AC`
         : mundaneArmorEffect(item.index),
+      untrained: !proficientWithArmorItem(profIdx, item.index),
     });
   }
 

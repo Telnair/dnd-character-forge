@@ -588,6 +588,21 @@ const AttuneBadge = styled(HandBadge)`
   border-color: ${({ theme }) => `${theme.colors.ember}66`};
 `;
 
+const WarnBadge = styled(HandBadge)`
+  color: ${({ theme }) => theme.colors.emberBright};
+  border-color: ${({ theme }) => `${theme.colors.emberBright}66`};
+  text-transform: none;
+`;
+
+const WarnTag = styled.span`
+  ${tagText}
+  padding: 0.28rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid ${({ theme }) => `${theme.colors.ember}66`};
+  background: rgba(232, 100, 42, 0.1);
+  color: ${({ theme }) => theme.colors.emberBright};
+`;
+
 const WornControls = styled.div`
   display: flex;
   align-items: center;
@@ -983,6 +998,7 @@ export const CharacterSheet = forwardRef<
               </Tag>
             ))}
             {sheet.acNote && <Tag>{sheet.acNote}</Tag>}
+            {sheet.armorWarning && <WarnTag>⚠ {sheet.armorWarning}</WarnTag>}
           </TagWrap>
         </CardHeaderRow>
         <StatGridFull>
@@ -1177,6 +1193,7 @@ export const CharacterSheet = forwardRef<
                             {it.name}
                             {it.magic && <MagicBadge>✦ magic</MagicBadge>}
                             {it.attunement && <AttuneBadge>attune</AttuneBadge>}
+                            {it.untrained && <WarnBadge>⚠ not proficient</WarnBadge>}
                             {it.equipped && !interactive && <HandBadge>{wornLabel}</HandBadge>}
                           </WeaponName>
                           <WeaponMeta>
