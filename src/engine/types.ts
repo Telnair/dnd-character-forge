@@ -134,6 +134,10 @@ export interface OwnedMagicItem {
 export interface PlayState {
   /** When set, the sheet shows current / max HP. */
   currentHp?: number;
+  /** Temporary Hit Points — a separate pool above max that damage depletes first. */
+  tempHp?: number;
+  /** Temporary Armor Class adjustment (Shield spell, cover, etc.); added to derived AC. */
+  acBonus?: number;
   /** Keyed by spell level ("1"…"9"), "pact", or "cantrip" — each bool is a slot circle. */
   usedSlots?: Record<string, boolean[]>;
   /** Weapons the character currently has in hand (weapon catalog indexes). */

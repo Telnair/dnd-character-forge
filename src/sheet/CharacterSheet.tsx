@@ -240,7 +240,7 @@ const StatName = styled.div`
 
 const HpControl = styled.div`
   display: grid;
-  grid-template-columns: 1.35rem 4.5rem 1.35rem;
+  grid-template-columns: 1.35rem minmax(4.5rem, max-content) 1.35rem;
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
@@ -799,18 +799,50 @@ export const CharacterSheet = forwardRef<
   }, [equipDraft]);
 
   const currentHp = playState?.currentHp ?? sheet.maxHp;
+  const tempHp = playState?.tempHp ?? 0;
   const hpChanged = playState?.currentHp != null && playState.currentHp !== sheet.maxHp;
-  const hpDisplay = hpChanged ? `${currentHp}/${sheet.maxHp}` : String(sheet.maxHp);
+  // "X (Y)" — X is current (or current/max) HP, Y is the Temporary HP pool when present.
+  const hpDisplay =
+    (hpChanged ? `${currentHp}/${sheet.maxHp}` : String(sheet.maxHp)) +
+    (tempHp > 0 ? ` (${tempHp})` : "");
 
+  // +/- on HP: at/above full, "+" adds Temporary HP (a pool above max); damage ("-")
+  // depletes Temp HP first, then current HP — matching the 2024 Temp HP rules.
   const adjustHp = useCallback(
     (delta: number) => {
       update((d) => {
         d.playState ??= {};
-        const base = d.playState.currentHp ?? sheet.maxHp;
-        d.playState.currentHp = Math.max(0, Math.min(sheet.maxHp, base + delta));
+        const max = sheet.maxHp;
+        let cur = d.playState.currentHp ?? max;
+        let temp = d.playState.tempHp ?? 0;
+        if (delta > 0) {
+          if (cur < max) cur = Math.min(max, cur + delta);
+          else temp += delta;
+        } else {
+          const dmg = -delta;
+          const fromTemp = Math.min(temp, dmg);
+          temp -= fromTemp;
+          cur = Math.max(0, cur - (dmg - fromTemp));
+        }
+        d.playState.currentHp = cur;
+        d.playState.tempHp = temp > 0 ? temp : undefined;
       });
     },
     [update, sheet.maxHp]
+  );
+
+  const acBonus = playState?.acBonus ?? 0;
+  const effectiveAc = sheet.armorClass + acBonus;
+
+  const adjustAc = useCallback(
+    (delta: number) => {
+      update((d) => {
+        d.playState ??= {};
+        const next = (d.playState.acBonus ?? 0) + delta;
+        d.playState.acBonus = next !== 0 ? next : undefined;
+      });
+    },
+    [update]
   );
 
   const toggleSlot = useCallback(
@@ -1003,10 +1035,24 @@ export const CharacterSheet = forwardRef<
         </CardHeaderRow>
         <StatGridFull>
           <Stat>
-            <StatValue>
-              <StatNum>{sheet.armorClass}</StatNum>
-            </StatValue>
-            <StatName>Armor Class</StatName>
+            {interactive ? (
+              <HpControl>
+                <HpBtn type="button" aria-label="Decrease AC boost" onClick={() => adjustAc(-1)}>
+                  −
+                </HpBtn>
+                <StatNum>{effectiveAc}</StatNum>
+                <HpBtn type="button" aria-label="Increase AC boost" onClick={() => adjustAc(1)}>
+                  +
+                </HpBtn>
+              </HpControl>
+            ) : (
+              <StatValue>
+                <StatNum>{effectiveAc}</StatNum>
+              </StatValue>
+            )}
+            <StatName>
+              {acBonus !== 0 ? `Armor Class · ${formatModifier(acBonus)} boost` : "Armor Class"}
+            </StatName>
           </Stat>
           <Stat>
             <StatValue>
@@ -1030,7 +1076,7 @@ export const CharacterSheet = forwardRef<
                 <StatNum>{hpDisplay}</StatNum>
               </StatValue>
             )}
-            <StatName>{hpChanged ? "Hit Points" : "Max HP"}</StatName>
+            <StatName>{hpChanged || tempHp > 0 ? "Hit Points" : "Max HP"}</StatName>
           </Stat>
           <Stat>
             <StatValue>
