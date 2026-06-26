@@ -15,7 +15,6 @@ export default defineConfig({
       // `bun link`-ed so node_modules/dnd-2024 symlinks to the sibling
       // `../dnd2024` checkout. Vite resolves the symlink's real path, which
       // lives outside the project root, so allow reading the parent dir.
-      allow: [path.resolve(__dirname, "..")],
     },
     port: 5173,
     open: false,
