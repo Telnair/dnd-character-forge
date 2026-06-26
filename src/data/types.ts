@@ -14,6 +14,7 @@ import type { Subspecies } from "dnd-2024/src/pipeline/schemas/subspecies-2024.t
 import type { Background } from "dnd-2024/src/pipeline/schemas/background-2024.ts";
 import type { Spell } from "dnd-2024/src/pipeline/schemas/spell-2024.ts";
 import type { Equipment } from "dnd-2024/src/pipeline/schemas/equipment-2024.ts";
+import type { MagicItem } from "dnd-2024/src/pipeline/schemas/magic-item-2024.ts";
 import type { Feat } from "dnd-2024/src/pipeline/schemas/feat-2024.ts";
 import type { Feature } from "dnd-2024/src/pipeline/schemas/feature-2024.ts";
 import type { Proficiency } from "dnd-2024/src/pipeline/schemas/proficiency-2024.ts";
@@ -36,6 +37,7 @@ export type {
   Language,
   Trait,
   Condition,
+  MagicItem,
 };
 
 /** {index, name, url} reference, used everywhere in the dataset. */

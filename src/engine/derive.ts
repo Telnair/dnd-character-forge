@@ -17,8 +17,14 @@ import { equipmentOptionLabel } from "./choices";
 import { baseOf, featureChoiceSpecs } from "./featureChoices";
 import { abilityMods, finalAbilities } from "./abilities";
 import { computeArmorClass } from "./armor";
+import { computeWeapons } from "./weapons";
+import { computeWornItems } from "./equip";
 import { collectFeatGrants } from "./feats";
-import { CLASS_CASTING, WEAPON_MASTERY_DESC, weaponMasteriesForClass } from "./config";
+import {
+  CLASS_CASTING,
+  WEAPON_MASTERY_DESC,
+  weaponMasteriesForClass,
+} from "./config";
 import { hitDiceByClass, maxHitPoints } from "./hitpoints";
 import {
   computeLanguages,
@@ -58,7 +64,9 @@ interface RawEquipmentItem {
   unit?: string;
 }
 
-const equipmentByName = new Map(equipment.map((e) => [e.name.toLowerCase(), e]));
+const equipmentByName = new Map(
+  equipment.map((e) => [e.name.toLowerCase(), e]),
+);
 
 /** Walk a single starting-equipment option branch into concrete item tokens. */
 function collectOptionItems(option: any, out: RawEquipmentItem[]): void {
@@ -71,12 +79,17 @@ function collectOptionItems(option: any, out: RawEquipmentItem[]): void {
     case "counted_reference":
       out.push({
         index: option.of?.index,
-        name: equipmentMap.get(option.of?.index)?.name ?? option.of?.name ?? "Item",
+        name:
+          equipmentMap.get(option.of?.index)?.name ?? option.of?.name ?? "Item",
         quantity: option.count ?? 1,
       });
       break;
     case "money":
-      out.push({ name: option.unit, unit: option.unit, quantity: option.count ?? 0 });
+      out.push({
+        name: option.unit,
+        unit: option.unit,
+        quantity: option.count ?? 0,
+      });
       break;
     case "multiple":
       for (const it of option.items ?? []) collectOptionItems(it, out);
@@ -90,21 +103,27 @@ function collectOptionItems(option: any, out: RawEquipmentItem[]): void {
 function collectChosenOptions(
   options: any[] | undefined,
   chosen: Record<number, string> | undefined,
-  out: RawEquipmentItem[]
+  out: RawEquipmentItem[],
 ): void {
   if (!options || !chosen) return;
   options.forEach((choice, i) => {
     const label = chosen[i];
     if (!label) return;
     const branches =
-      choice?.from?.option_set_type === "options_array" ? choice.from.options ?? [] : [];
+      choice?.from?.option_set_type === "options_array"
+        ? (choice.from.options ?? [])
+        : [];
     const match = branches.find((o: any) => equipmentOptionLabel(o) === label);
     if (match) {
       collectOptionItems(match, out);
     } else {
       // Category pick (label is the item name) or anything we can't structure.
       const found = equipmentByName.get(label.toLowerCase());
-      out.push({ index: found?.index, name: found?.name ?? label, quantity: 1 });
+      out.push({
+        index: found?.index,
+        name: found?.name ?? label,
+        quantity: 1,
+      });
     }
   });
 }
@@ -114,16 +133,15 @@ function rawEquipment(draft: CharacterDraft): RawEquipmentItem[] {
   const primary = draft.classes.find((c) => c.isPrimary) ?? draft.classes[0];
   if (primary) {
     const cls = classMap.get(primary.classIndex);
-    for (const se of cls?.starting_equipment ?? []) {
-      out.push({
-        index: se.equipment.index,
-        name: equipmentMap.get(se.equipment.index)?.name ?? se.equipment.name,
-        quantity: se.quantity ?? 1,
-      });
-    }
-    collectChosenOptions(cls?.starting_equipment_options, primary.equipmentChoices, out);
+    collectChosenOptions(
+      cls?.starting_equipment_options,
+      primary.equipmentChoices,
+      out,
+    );
   }
-  const bg = draft.backgroundIndex ? backgroundMap.get(draft.backgroundIndex) : undefined;
+  const bg = draft.backgroundIndex
+    ? backgroundMap.get(draft.backgroundIndex)
+    : undefined;
   for (const se of bg?.starting_equipment ?? []) {
     out.push({
       index: se.equipment.index,
@@ -131,7 +149,11 @@ function rawEquipment(draft: CharacterDraft): RawEquipmentItem[] {
       quantity: se.quantity ?? 1,
     });
   }
-  collectChosenOptions(bg?.starting_equipment_options, draft.backgroundEquipmentChoices, out);
+  collectChosenOptions(
+    bg?.starting_equipment_options,
+    draft.backgroundEquipmentChoices,
+    out,
+  );
   return out;
 }
 
@@ -215,7 +237,11 @@ function computeSubclassSpells(draft: CharacterDraft): {
     }
     if (spells.length) {
       spells.sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
-      out.push({ classIndex: entry.classIndex, subclassName: sub.name, spells });
+      out.push({
+        classIndex: entry.classIndex,
+        subclassName: sub.name,
+        spells,
+      });
     }
   }
   return out;
@@ -228,7 +254,9 @@ function computeSubclassSpells(draft: CharacterDraft): {
  * casting ability is the trait's option(s) (a fixed ability or a player choice of
  * Int/Wis/Cha), surfaced for display rather than folded into a save DC.
  */
-function computeSpeciesSpells(draft: CharacterDraft): DerivedSheet["speciesSpells"] {
+function computeSpeciesSpells(
+  draft: CharacterDraft,
+): DerivedSheet["speciesSpells"] {
   const lvl = totalLevel(draft);
   const out: DerivedSheet["speciesSpells"] = [];
   for (const trait of speciesTraitList(draft)) {
@@ -246,7 +274,8 @@ function computeSpeciesSpells(draft: CharacterDraft): DerivedSheet["speciesSpell
     if (!spells.length) continue;
     out.push({
       traitName: trait.name,
-      source: trait.subspecies?.[0]?.name ?? trait.species?.[0]?.name ?? "Species",
+      source:
+        trait.subspecies?.[0]?.name ?? trait.species?.[0]?.name ?? "Species",
       ability: sc.ability.map((a) => a.name),
       spells,
     });
@@ -262,7 +291,7 @@ function computeSpeciesSpells(draft: CharacterDraft): DerivedSheet["speciesSpell
 function optionPickLabel(
   draft: CharacterDraft,
   instanceKey: string,
-  choices?: any[]
+  choices?: any[],
 ): string {
   if (!choices?.length) return "";
   const picks = draft.featureOptionChoices?.[instanceKey] ?? {};
@@ -279,7 +308,9 @@ function optionPickLabel(
  * pointed at it (Repelling Blast / Agonizing Blast / Eldritch Spear → the cantrip
  * they improve). Lets the spell card show "Enhanced By: …" on the cantrip itself.
  */
-function computeSpellEnhancements(draft: CharacterDraft): Record<string, string[]> {
+function computeSpellEnhancements(
+  draft: CharacterDraft,
+): Record<string, string[]> {
   const out: Record<string, string[]> = {};
   for (const instances of Object.values(draft.featureChoices ?? {})) {
     for (const inst of instances) {
@@ -307,11 +338,16 @@ function computeSpellEnhancements(draft: CharacterDraft): Record<string, string[
  * the player's chosen Eldritch Invocations (Armor of Shadows → Mage Armor at will).
  * Deduped by feature; an invocation's spell shows only once it's actually chosen.
  */
-function computeFeatureSpells(draft: CharacterDraft): DerivedSheet["featureSpells"] {
+function computeFeatureSpells(
+  draft: CharacterDraft,
+): DerivedSheet["featureSpells"] {
   const out: DerivedSheet["featureSpells"] = [];
   const seen = new Set<string>();
 
-  const push = (feature: ReturnType<typeof featureMap.get>, classIndex: string) => {
+  const push = (
+    feature: ReturnType<typeof featureMap.get>,
+    classIndex: string,
+  ) => {
     const sc = feature?.feature_specific?.spellcasting;
     if (!feature || !sc || seen.has(feature.index)) return;
     seen.add(feature.index);
@@ -320,7 +356,9 @@ function computeFeatureSpells(draft: CharacterDraft): DerivedSheet["featureSpell
       featureName: feature.name.replace(/^Eldritch Invocation:\s*/, ""),
       source: classMap.get(classIndex)?.name ?? classIndex,
       classIndex,
-      ability: sc.ability?.name ?? (fallback ? ABILITY_ABBR[fallback as AbilityKey] : undefined),
+      ability:
+        sc.ability?.name ??
+        (fallback ? ABILITY_ABBR[fallback as AbilityKey] : undefined),
       featureDesc: feature.desc,
       activation: feature.activation,
       recharge: feature.recharge,
@@ -339,13 +377,15 @@ function computeFeatureSpells(draft: CharacterDraft): DerivedSheet["featureSpell
     const cls = classMap.get(entry.classIndex);
     for (const lvl of cls?.levels ?? []) {
       if (lvl.level > entry.level) break;
-      for (const ref of lvl.features ?? []) push(featureMap.get(ref.index), entry.classIndex);
+      for (const ref of lvl.features ?? [])
+        push(featureMap.get(ref.index), entry.classIndex);
     }
     if (entry.subclassIndex) {
       const sub = subclassMap.get(entry.subclassIndex);
       for (const lvl of sub?.levels ?? []) {
         if (lvl.level > entry.level) continue;
-        for (const ref of lvl.features) push(featureMap.get(ref.index), entry.classIndex);
+        for (const ref of lvl.features)
+          push(featureMap.get(ref.index), entry.classIndex);
       }
     }
   }
@@ -362,7 +402,7 @@ function computeFeatureSpells(draft: CharacterDraft): DerivedSheet["featureSpell
 }
 
 function computeWeaponMasteries(
-  draft: CharacterDraft
+  draft: CharacterDraft,
 ): { weapon: string; mastery: string; desc: string }[] {
   const out: { weapon: string; mastery: string; desc: string }[] = [];
   for (const idx of draft.weaponMasteryChoices ?? []) {
@@ -385,13 +425,23 @@ export function deriveSheet(draft: CharacterDraft): DerivedSheet {
   const perception = skills.find((s) => s.index === "perception");
   const equipmentItems = [
     ...resolveEquipment(draft),
-    ...(draft.extraEquipment ?? []).map((name) => ({ name, quantity: 1 })),
+    // Sheet-added gear: resolve names that match the catalog to their index so
+    // weapons/armor added here behave like starting gear (equippable, AC, etc.).
+    // Anything unmatched stays as free text.
+    ...(draft.extraEquipment ?? []).map((name) => {
+      const found = equipmentByName.get(name.toLowerCase());
+      return { name: found?.name ?? name, quantity: 1, index: found?.index };
+    }),
   ];
   const ac = computeArmorClass(draft, equipmentItems);
 
   const race = draft.raceIndex ? raceMap.get(draft.raceIndex) : undefined;
-  const subrace = draft.subraceIndex ? subraceMap.get(draft.subraceIndex) : undefined;
-  const bg = draft.backgroundIndex ? backgroundMap.get(draft.backgroundIndex) : undefined;
+  const subrace = draft.subraceIndex
+    ? subraceMap.get(draft.subraceIndex)
+    : undefined;
+  const bg = draft.backgroundIndex
+    ? backgroundMap.get(draft.backgroundIndex)
+    : undefined;
 
   const features = draft.classes.flatMap((entry) => featuresForEntry(entry));
   // Species/subspecies traits as features (with the player's chosen variant, if any).
@@ -448,6 +498,8 @@ export function deriveSheet(draft: CharacterDraft): DerivedSheet {
   }
 
   const weaponMasteries = computeWeaponMasteries(draft);
+  const weapons = computeWeapons(draft, equipmentItems, mods, pb);
+  const wornItems = computeWornItems(draft, equipmentItems);
 
   const spellcasting = spellcastingEntries(draft).map((entry) => {
     const cfg = CLASS_CASTING[entry.classIndex];
@@ -468,8 +520,14 @@ export function deriveSheet(draft: CharacterDraft): DerivedSheet {
     .filter((c) => (c.cantrips?.length ?? 0) + (c.spells?.length ?? 0) > 0)
     .map((c) => ({
       classIndex: c.classIndex,
-      cantrips: (c.cantrips ?? []).map((i) => ({ index: i, name: spellMap.get(i)?.name ?? i })),
-      spells: (c.spells ?? []).map((i) => ({ index: i, name: spellMap.get(i)?.name ?? i })),
+      cantrips: (c.cantrips ?? []).map((i) => ({
+        index: i,
+        name: spellMap.get(i)?.name ?? i,
+      })),
+      spells: (c.spells ?? []).map((i) => ({
+        index: i,
+        name: spellMap.get(i)?.name ?? i,
+      })),
     }));
 
   return {
@@ -495,6 +553,8 @@ export function deriveSheet(draft: CharacterDraft): DerivedSheet {
     languages: computeLanguages(draft),
     proficiencies: computeOtherProficiencies(draft),
     weaponMasteries,
+    weapons,
+    wornItems,
     features,
     spellSlots: computeSpellSlots(draft),
     pactSlots: computePactSlots(draft),

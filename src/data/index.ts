@@ -13,6 +13,7 @@ import speciesJson from "dnd-2024/data/out/5e-SRD-Species.json";
 import subspeciesJson from "dnd-2024/data/out/5e-SRD-Subspecies.json";
 import backgroundsJson from "dnd-2024/data/out/5e-SRD-Backgrounds.json";
 import equipmentJson from "dnd-2024/data/out/5e-SRD-Equipment.json";
+import magicItemsJson from "dnd-2024/data/out/5e-SRD-Magic-Items.json";
 import spellsJson from "dnd-2024/data/out/5e-SRD-Spells.json";
 import featsJson from "dnd-2024/data/out/5e-SRD-Feats.json";
 import proficienciesJson from "dnd-2024/data/out/5e-SRD-Proficiencies.json";
@@ -33,6 +34,7 @@ import type {
   Feature,
   Language,
   Level,
+  MagicItem,
   Proficiency,
   RaceView,
   SrdAbilityScore,
@@ -59,6 +61,7 @@ export const features = featuresJson as unknown as Feature[];
 export const spells = spellsJson as unknown as Spell[];
 export const feats = featsJson as unknown as Feat[];
 export const equipment = equipmentJson as unknown as Equipment[];
+export const magicItems = magicItemsJson as unknown as MagicItem[];
 export const proficiencies = proficienciesJson as unknown as Proficiency[];
 export const languages = languagesJson as unknown as Language[];
 export const traits = traitsJson as unknown as Trait[];
@@ -138,6 +141,7 @@ export const abilityScoreMap = byIndex(abilityScores);
 export const proficiencyMap = byIndex(proficiencies);
 export const featureMap = byIndex(features);
 export const equipmentMap = byIndex(equipment);
+export const magicItemMap = byIndex(magicItems);
 export const languageMap = byIndex(languages);
 export const featMap = byIndex(feats);
 export const traitMap = byIndex(traits);

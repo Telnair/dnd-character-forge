@@ -109,6 +109,25 @@ export interface CharacterDraft {
   playState?: PlayState;
   /** Free-text equipment added on the Legend sheet. */
   extraEquipment?: string[];
+  /** Magic items the character carries, added on the sheet. */
+  magicItems?: OwnedMagicItem[];
+}
+
+/**
+ * A magic item the character owns (added on the sheet). Magic weapons/armor are
+ * modifiers applied to a base item the player picks, so the chosen base and the
+ * chosen +N (for the generic "+1/+2/+3" items) are captured here alongside the
+ * worn/wielded state, letting the engine resolve a full attack/AC effect.
+ */
+export interface OwnedMagicItem {
+  /** Magic-item catalog index. */
+  index: string;
+  /** Base weapon (equipment index) for a weapon/ammunition modifier. */
+  baseWeapon?: string;
+  /** Chosen +N when the item's `combat.scales_with_rarity`. */
+  bonus?: number;
+  /** Whether the item is currently equipped (in hand / worn). */
+  equipped?: boolean;
 }
 
 /** Tracks in-play resource usage shown on the character sheet. */
@@ -117,6 +136,12 @@ export interface PlayState {
   currentHp?: number;
   /** Keyed by spell level ("1"…"9"), "pact", or "cantrip" — each bool is a slot circle. */
   usedSlots?: Record<string, boolean[]>;
+  /** Weapons the character currently has in hand (weapon catalog indexes). */
+  equippedWeapons?: string[];
+  /** Worn mundane body armor (equipment index). When set, AC uses it instead of the best carried. */
+  equippedArmor?: string;
+  /** Held mundane shield (equipment index). When set, the shield bonus is applied. */
+  equippedShield?: string;
 }
 
 export interface SkillRow {
@@ -181,6 +206,59 @@ export interface DerivedSheet {
   proficiencies: { weapons: string[]; armor: string[]; tools: string[] };
   /** 2024 weapon mastery: the weapons whose Mastery property the character uses. */
   weaponMasteries: { weapon: string; mastery: string; desc: string }[];
+  /**
+   * The character's weapons (catalog weapons in their equipment), resolved into
+   * attack/damage rows. `attackBonus` already folds in proficiency; `damageBonus`
+   * is the ability modifier added to the weapon's dice. `versatile` carries the
+   * two-handed damage, `mastery` the active Mastery property (when picked).
+   */
+  weapons: {
+    index?: string;
+    name: string;
+    quantity: number;
+    kind: "melee" | "ranged";
+    ability: AbilityKey;
+    proficient: boolean;
+    attackBonus: number;
+    damageDice: string;
+    damageBonus: number;
+    damageType: string;
+    versatile?: { dice: string; bonus: number; type: string };
+    /** Extra damage dice the weapon adds on a hit (magic weapons: Flame Tongue, etc.). */
+    extraDamage?: { dice: string; type?: string }[];
+    properties: string[];
+    mastery?: string;
+    range?: { normal: number; long?: number };
+    throwRange?: { normal: number; long: number };
+    /** Set for a magic weapon: the magic item's name (base weapon shown in `name`). */
+    magic?: string;
+    /** Whether this magic weapon requires attunement. */
+    attunement?: boolean;
+  }[];
+  /**
+   * The character's worn/wielded magic items and equippable armor, for the
+   * Equipped / Worn section. `ref` is the index into `draft.magicItems` for a magic
+   * item (so the UI can toggle/configure it), or undefined for a mundane armor/shield
+   * row keyed by `index`.
+   */
+  wornItems: {
+    ref?: number;
+    index: string;
+    name: string;
+    kind: "weapon" | "ammunition" | "armor" | "shield" | "other";
+    magic: boolean;
+    equipped: boolean;
+    attunement: boolean;
+    /** Human-readable effect summary (e.g. "+1 AC", "+2 attack & damage", "+2d6 Fire"). */
+    effect: string;
+    /** Weapon magic item: the chosen base weapon (equipment index), if any. */
+    baseWeapon?: string;
+    /** True when a base weapon must be chosen but none is set. */
+    needsBase?: boolean;
+    /** True when a +N must be chosen (scales_with_rarity) but none is set. */
+    needsBonus?: boolean;
+    bonus?: number;
+  }[];
   features: {
     name: string;
     source: string;

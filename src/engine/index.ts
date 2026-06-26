@@ -7,6 +7,8 @@ export * from "./hitpoints";
 export * from "./spells";
 export * from "./multiclass";
 export * from "./armor";
+export * from "./weapons";
+export * from "./equip";
 export * from "./choices";
 export * from "./featureChoices";
 export * from "./derive";

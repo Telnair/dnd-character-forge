@@ -1,6 +1,15 @@
-import { forwardRef, useCallback, useState } from "react";
+import { forwardRef, useCallback, useMemo, useState } from "react";
 import styled, { css } from "styled-components";
-import { ABILITY_NAMES, ABILITY_ORDER, classMap, skillMap, spellMap } from "@/data";
+import {
+  ABILITY_NAMES,
+  ABILITY_ORDER,
+  classMap,
+  equipment,
+  magicItems,
+  magicItemMap,
+  skillMap,
+  spellMap,
+} from "@/data";
 import { formatModifier, type DerivedSheet, type PlayState } from "@/engine";
 import { useCharacter } from "@/store/characterStore";
 import { ABILITY_COLORS } from "@/assets/abilityColors";
@@ -9,6 +18,30 @@ import { Tooltip } from "@/ui/Tooltip";
 import { SpellTooltip, slotAccess, type SpellAccess } from "@/ui/SpellCard";
 import { FeatureTooltip, RECHARGE_LABEL, ACTION_LABEL } from "@/ui/FeatureCard";
 import { CostIcon, type SlotKind } from "@/ui/CostIcon";
+
+// Autocomplete catalog for "Add equipment": mundane gear + magic items. Free text
+// is still allowed; this only drives suggestions and resolves a typed/picked name to
+// the right thing (a magic item → draft.magicItems; mundane gear → canonical name).
+const CATALOG_ITEMS: { name: string; magic: boolean }[] = (() => {
+  const seen = new Set<string>();
+  const list: { name: string; magic: boolean }[] = [];
+  for (const m of magicItems) {
+    const lc = m.name.toLowerCase();
+    if (!seen.has(lc)) (seen.add(lc), list.push({ name: m.name, magic: true }));
+  }
+  for (const e of equipment) {
+    const lc = e.name.toLowerCase();
+    if (!seen.has(lc)) (seen.add(lc), list.push({ name: e.name, magic: false }));
+  }
+  return list.sort((a, b) => a.name.localeCompare(b.name));
+})();
+const CANONICAL_BY_LC = new Map(equipment.map((e) => [e.name.toLowerCase(), e.name]));
+const MAGIC_BY_LC = new Map(magicItems.map((m) => [m.name.toLowerCase(), m]));
+/** Catalog weapons, for the magic-weapon base-weapon picker in the Worn section. */
+const WEAPON_OPTIONS = equipment
+  .filter((e) => e.damage)
+  .map((e) => ({ index: e.index, name: e.name }))
+  .sort((a, b) => a.name.localeCompare(b.name));
 
 const Sheet = styled.div`
   background:
@@ -346,6 +379,60 @@ const EquipTagInput = styled.input`
   }
 `;
 
+const EquipInputWrap = styled.div`
+  position: relative;
+  display: inline-flex;
+`;
+
+const Suggestions = styled.div`
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  min-width: 200px;
+  max-width: 260px;
+  max-height: 230px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem;
+  background: ${({ theme }) => theme.colors.panelSolid};
+  border: 1px solid ${({ theme }) => theme.colors.borderStrong};
+  border-radius: ${({ theme }) => theme.radius.md};
+  box-shadow: ${({ theme }) => theme.shadow.panel};
+`;
+
+const SuggestionItem = styled.button<{ $active: boolean }>`
+  ${tagText}
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  text-align: left;
+  padding: 0.3rem 0.5rem;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  color: ${({ theme, $active }) => ($active ? theme.colors.ink : theme.colors.text)};
+  background: ${({ theme, $active }) => ($active ? theme.colors.goldBright : "transparent")};
+  &:hover {
+    background: ${({ theme, $active }) =>
+      $active ? theme.colors.goldBright : "rgba(245, 196, 81, 0.14)"};
+  }
+`;
+
+const SuggestionTag = styled.span`
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: ${({ theme }) => theme.colors.arcaneBright};
+  border: 1px solid ${({ theme }) => theme.colors.arcaneBright}66;
+  border-radius: 999px;
+  padding: 0.05rem 0.35rem;
+  flex: 0 0 auto;
+`;
+
 const TagRemove = styled.button`
   border: none;
   background: none;
@@ -444,6 +531,173 @@ const SpellListBlock = styled.div`
   margin-top: 0.75rem;
 `;
 
+const WeaponList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+`;
+
+const WeaponRow = styled.div<{ $equipped: boolean }>`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.9rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: ${({ theme }) => theme.radius.md};
+  border: 1px solid
+    ${({ theme, $equipped }) => ($equipped ? `${theme.colors.goldBright}66` : theme.colors.border)};
+  background: ${({ $equipped }) =>
+    $equipped ? "rgba(245, 196, 81, 0.08)" : "rgba(0, 0, 0, 0.28)"};
+`;
+
+const WeaponMain = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1 1 9rem;
+  min-width: 9rem;
+`;
+
+const WeaponName = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 1.05rem;
+  color: ${({ theme }) => theme.colors.text};
+`;
+
+const HandBadge = styled.span`
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: ${({ theme }) => theme.colors.goldBright};
+  border: 1px solid ${({ theme }) => `${theme.colors.goldBright}66`};
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+`;
+
+const MagicBadge = styled(HandBadge)`
+  color: ${({ theme }) => theme.colors.arcaneBright};
+  border-color: ${({ theme }) => `${theme.colors.arcaneBright}66`};
+`;
+
+const AttuneBadge = styled(HandBadge)`
+  color: ${({ theme }) => theme.colors.ember};
+  border-color: ${({ theme }) => `${theme.colors.ember}66`};
+`;
+
+const WornControls = styled.div`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: ${({ theme }) => theme.colors.textDim};
+`;
+
+const WornSelect = styled.select`
+  ${tagText}
+  font-size: 0.85rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 5px;
+  border: 1px solid ${({ theme }) => theme.colors.borderStrong};
+  background: ${({ theme }) => theme.colors.panelSolid};
+  color: ${({ theme }) => theme.colors.text};
+  max-width: 12rem;
+  &:focus {
+    outline: none;
+  }
+`;
+
+const WeaponMeta = styled.div`
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: ${({ theme }) => theme.colors.textDim};
+`;
+
+const WeaponStats = styled.div`
+  display: flex;
+  gap: 0.45rem;
+  flex: 0 0 auto;
+`;
+
+const WeaponStat = styled.div`
+  text-align: center;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radius.md};
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.3rem 0.55rem;
+  min-width: 3.2rem;
+`;
+
+const WeaponStatVal = styled.div`
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 1.05rem;
+  color: ${({ theme }) => theme.colors.goldBright};
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+`;
+
+const WeaponStatName = styled.div`
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: ${({ theme }) => theme.colors.textDim};
+`;
+
+// Theme-styled equip toggle rendered as a checkbox (not a native browser one).
+const EquipCheck = styled.button<{ $on: boolean }>`
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: none;
+  padding: 0.2rem 0;
+  cursor: pointer;
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 0.92rem;
+  letter-spacing: 0.02em;
+  color: ${({ theme, $on }) => ($on ? theme.colors.goldBright : theme.colors.textDim)};
+  &:hover {
+    color: ${({ theme }) => theme.colors.text};
+  }
+`;
+
+const CheckBox = styled.span<{ $on: boolean }>`
+  width: 17px;
+  height: 17px;
+  border-radius: 5px;
+  border: 1.5px solid
+    ${({ theme, $on }) => ($on ? theme.colors.goldBright : theme.colors.borderStrong)};
+  background: ${({ theme, $on }) => ($on ? theme.colors.goldBright : "rgba(0, 0, 0, 0.3)")};
+  color: ${({ theme }) => theme.colors.ink};
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  line-height: 1;
+  flex: 0 0 auto;
+  box-shadow: ${({ theme, $on }) => ($on ? theme.shadow.glow : "none")};
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+`;
+
+/** "1d8 +3 Slashing" (the +0 is shown for parity with the rest of the sheet). */
+function formatDamage(dice: string, bonus: number, type: string): string {
+  return `${dice} ${formatModifier(bonus)} ${type}`;
+}
+
+function rangeNote(w: DerivedSheet["weapons"][number]): string | undefined {
+  if (w.range) return `Range ${w.range.normal}${w.range.long ? `/${w.range.long}` : ""} ft.`;
+  if (w.throwRange) return `Thrown ${w.throwRange.normal}/${w.throwRange.long} ft.`;
+  return undefined;
+}
+
 function skillDesc(index: string): string | undefined {
   return skillMap.get(index)?.desc?.join("\n\n");
 }
@@ -455,7 +709,8 @@ function slotArray(playState: PlayState | undefined, key: string, total: number)
 }
 
 function isExtraEquipment(name: string, extra: string[] | undefined): boolean {
-  return (extra ?? []).includes(name);
+  const lc = name.toLowerCase();
+  return (extra ?? []).some((e) => e.toLowerCase() === lc);
 }
 
 /** Short label for how a feature-granted spell may be cast. */
@@ -514,6 +769,19 @@ export const CharacterSheet = forwardRef<
   const playState = draft.playState;
   const [addingEquip, setAddingEquip] = useState(false);
   const [equipDraft, setEquipDraft] = useState("");
+  const [highlightIdx, setHighlightIdx] = useState(-1);
+
+  const equipSuggestions = useMemo(() => {
+    const q = equipDraft.trim().toLowerCase();
+    if (!q) return [];
+    return CATALOG_ITEMS.filter((c) => c.name.toLowerCase().includes(q))
+      .sort((a, b) => {
+        const aStarts = a.name.toLowerCase().startsWith(q) ? 0 : 1;
+        const bStarts = b.name.toLowerCase().startsWith(q) ? 0 : 1;
+        return aStarts - bStarts || a.name.localeCompare(b.name);
+      })
+      .slice(0, 8);
+  }, [equipDraft]);
 
   const currentHp = playState?.currentHp ?? sheet.maxHp;
   const hpChanged = playState?.currentHp != null && playState.currentHp !== sheet.maxHp;
@@ -543,23 +811,96 @@ export const CharacterSheet = forwardRef<
     [update]
   );
 
-  const addEquipment = useCallback(() => {
-    const trimmed = equipDraft.trim();
-    if (!trimmed) return;
-    update((d) => {
-      d.extraEquipment ??= [];
-      d.extraEquipment.push(trimmed);
-    });
-    setEquipDraft("");
+  const closeAddEquip = useCallback(() => {
     setAddingEquip(false);
-  }, [equipDraft, update]);
+    setEquipDraft("");
+    setHighlightIdx(-1);
+  }, []);
+
+  const addEquipment = useCallback(
+    (nameArg?: string) => {
+      const trimmed = (nameArg ?? equipDraft).trim();
+      if (!trimmed) return;
+      const lc = trimmed.toLowerCase();
+      const magic = MAGIC_BY_LC.get(lc);
+      if (magic) {
+        // Magic items carry their own config (base weapon, +N, equipped) — store
+        // them structured under draft.magicItems and manage them in the Worn section.
+        update((d) => {
+          d.magicItems ??= [];
+          d.magicItems.push({ index: magic.index });
+        });
+        closeAddEquip();
+        return;
+      }
+      // Normalize to the catalog's canonical name when it matches, so the item
+      // resolves to its weapon/armor on the sheet (and stays equippable).
+      const name = CANONICAL_BY_LC.get(lc) ?? trimmed;
+      update((d) => {
+        d.extraEquipment ??= [];
+        d.extraEquipment.push(name);
+      });
+      closeAddEquip();
+    },
+    [equipDraft, update, closeAddEquip]
+  );
 
   const removeEquipment = useCallback(
     (name: string) => {
       update((d) => {
         if (!d.extraEquipment) return;
-        const idx = d.extraEquipment.indexOf(name);
+        const lc = name.toLowerCase();
+        const idx = d.extraEquipment.findIndex((e) => e.toLowerCase() === lc);
         if (idx >= 0) d.extraEquipment.splice(idx, 1);
+      });
+    },
+    [update]
+  );
+
+  const equippedWeapons = new Set(playState?.equippedWeapons ?? []);
+  const equippedMagic = new Set(
+    (draft.magicItems ?? []).filter((m) => m.equipped).map((m) => m.index)
+  );
+
+  const toggleEquipped = useCallback(
+    (key: string) => {
+      update((d) => {
+        d.playState ??= {};
+        const arr = (d.playState.equippedWeapons ??= []);
+        const idx = arr.indexOf(key);
+        if (idx >= 0) arr.splice(idx, 1);
+        else arr.push(key);
+      });
+    },
+    [update]
+  );
+
+  // --- Equipped / Worn section: magic items + mundane armor/shield ----------
+  const mutateMagic = useCallback(
+    (ref: number, fn: (m: NonNullable<typeof draft.magicItems>[number]) => void) => {
+      update((d) => {
+        const item = d.magicItems?.[ref];
+        if (item) fn(item);
+      });
+    },
+    [update]
+  );
+
+  const removeMagicItem = useCallback(
+    (ref: number) => {
+      update((d) => {
+        d.magicItems?.splice(ref, 1);
+      });
+    },
+    [update]
+  );
+
+  // Toggle a worn mundane armor / shield (drives AC). Clears when re-toggled.
+  const toggleWorn = useCallback(
+    (slot: "equippedArmor" | "equippedShield", index: string) => {
+      update((d) => {
+        d.playState ??= {};
+        d.playState[slot] = d.playState[slot] === index ? undefined : index;
       });
     },
     [update]
@@ -738,6 +1079,175 @@ export const CharacterSheet = forwardRef<
         </Col>
 
         <Col>
+          {sheet.weapons.length > 0 && (
+            <Card data-export-block>
+              <CardLabel>Weapons</CardLabel>
+              <CardContent>
+                <WeaponList>
+                  {[...sheet.weapons]
+                    .map((w) => ({
+                      w,
+                      key: w.index ?? w.name,
+                      equipped: w.magic
+                        ? equippedMagic.has(w.index ?? "")
+                        : equippedWeapons.has(w.index ?? w.name),
+                    }))
+                    .sort((a, b) => Number(b.equipped) - Number(a.equipped))
+                    .map(({ w, key, equipped }, i) => {
+                      const meta = [
+                        w.magic ? `Magic · ${w.magic}` : null,
+                        ...w.properties,
+                        w.mastery ? `Mastery: ${w.mastery}` : null,
+                        rangeNote(w),
+                        w.proficient ? null : "Not proficient",
+                      ].filter(Boolean);
+                      const extra = (w.extraDamage ?? [])
+                        .map((e) => `+${e.dice}${e.type ? ` ${e.type}` : ""}`)
+                        .join(", ");
+                      return (
+                        <WeaponRow key={`${key}-${i}`} $equipped={equipped}>
+                          <WeaponMain>
+                            <WeaponName>
+                              {w.name}
+                              {w.quantity > 1 ? ` ×${w.quantity}` : ""}
+                              {w.magic && <MagicBadge>✦ magic</MagicBadge>}
+                              {equipped && (w.magic || !interactive) && (
+                                <HandBadge>⚔ In hand</HandBadge>
+                              )}
+                            </WeaponName>
+                            {meta.length > 0 && <WeaponMeta>{meta.join(" · ")}</WeaponMeta>}
+                          </WeaponMain>
+                          <WeaponStats>
+                            <WeaponStat>
+                              <WeaponStatVal>{formatModifier(w.attackBonus)}</WeaponStatVal>
+                              <WeaponStatName>Atk</WeaponStatName>
+                            </WeaponStat>
+                            <WeaponStat>
+                              <WeaponStatVal>
+                                {formatDamage(w.damageDice, w.damageBonus, w.damageType)}
+                                {extra ? ` ${extra}` : ""}
+                              </WeaponStatVal>
+                              <WeaponStatName>
+                                {w.versatile
+                                  ? `Damage · ${w.versatile.dice} ${formatModifier(
+                                      w.versatile.bonus
+                                    )} two-handed`
+                                  : "Damage"}
+                              </WeaponStatName>
+                            </WeaponStat>
+                          </WeaponStats>
+                          {interactive && !w.magic && (
+                            <EquipCheck
+                              type="button"
+                              role="checkbox"
+                              aria-checked={equipped}
+                              aria-label={`${equipped ? "Unequip" : "Equip"} ${w.name}`}
+                              $on={equipped}
+                              onClick={() => toggleEquipped(key)}
+                            >
+                              <CheckBox $on={equipped}>{equipped ? "✓" : ""}</CheckBox>
+                            </EquipCheck>
+                          )}
+                        </WeaponRow>
+                      );
+                    })}
+                </WeaponList>
+              </CardContent>
+            </Card>
+          )}
+
+          {sheet.wornItems.length > 0 && (
+            <Card data-export-block>
+              <CardLabel>Equipped / Worn</CardLabel>
+              <CardContent>
+                <WeaponList>
+                  {sheet.wornItems.map((it, i) => {
+                    const isWeapon = it.kind === "weapon" || it.kind === "ammunition";
+                    const scales = it.needsBonus || it.bonus != null;
+                    const wornLabel = isWeapon ? "⚔ In hand" : "✓ Worn";
+                    const toggle = () => {
+                      if (it.ref != null) mutateMagic(it.ref, (m) => (m.equipped = !m.equipped));
+                      else if (it.kind === "shield") toggleWorn("equippedShield", it.index);
+                      else toggleWorn("equippedArmor", it.index);
+                    };
+                    return (
+                      <WeaponRow key={`${it.index}-${i}`} $equipped={it.equipped}>
+                        <WeaponMain>
+                          <WeaponName>
+                            {it.name}
+                            {it.magic && <MagicBadge>✦ magic</MagicBadge>}
+                            {it.attunement && <AttuneBadge>attune</AttuneBadge>}
+                            {it.equipped && !interactive && <HandBadge>{wornLabel}</HandBadge>}
+                          </WeaponName>
+                          <WeaponMeta>
+                            {it.kind}
+                            {it.effect ? ` · ${it.effect}` : ""}
+                            {it.needsBase ? " · choose a base weapon" : ""}
+                          </WeaponMeta>
+                          {interactive && it.ref != null && isWeapon && (
+                            <WornControls>
+                              <span>Base weapon:</span>
+                              <WornSelect
+                                value={it.baseWeapon ?? ""}
+                                onChange={(e) =>
+                                  mutateMagic(
+                                    it.ref!,
+                                    (m) => (m.baseWeapon = e.target.value || undefined)
+                                  )
+                                }
+                              >
+                                <option value="">— choose —</option>
+                                {WEAPON_OPTIONS.map((w) => (
+                                  <option key={w.index} value={w.index}>
+                                    {w.name}
+                                  </option>
+                                ))}
+                              </WornSelect>
+                            </WornControls>
+                          )}
+                          {interactive && it.ref != null && scales && (
+                            <WornControls>
+                              <span>Bonus:</span>
+                              <WornSelect
+                                value={it.bonus ?? ""}
+                                onChange={(e) =>
+                                  mutateMagic(
+                                    it.ref!,
+                                    (m) =>
+                                      (m.bonus = e.target.value ? Number(e.target.value) : undefined)
+                                  )
+                                }
+                              >
+                                <option value="">— choose —</option>
+                                <option value="1">+1</option>
+                                <option value="2">+2</option>
+                                <option value="3">+3</option>
+                              </WornSelect>
+                            </WornControls>
+                          )}
+                        </WeaponMain>
+                        {interactive && (
+                          <WeaponStats>
+                            <EquipCheck
+                              type="button"
+                              role="checkbox"
+                              aria-checked={it.equipped}
+                              aria-label={`${it.equipped ? "Unequip" : "Equip"} ${it.name}`}
+                              $on={it.equipped}
+                              onClick={toggle}
+                            >
+                              <CheckBox $on={it.equipped}>{it.equipped ? "✓" : ""}</CheckBox>
+                            </EquipCheck>
+                          </WeaponStats>
+                        )}
+                      </WeaponRow>
+                    );
+                  })}
+                </WeaponList>
+              </CardContent>
+            </Card>
+          )}
+
           {sheet.spellcasting.length > 0 && (
             <Card data-export-block>
               <CardLabel>Spellcasting</CardLabel>
@@ -990,32 +1500,90 @@ export const CharacterSheet = forwardRef<
                   </Tag>
                 );
               })}
+              {(draft.magicItems ?? []).map((m, ref) => {
+                const name = magicItemMap.get(m.index)?.name ?? m.index;
+                return (
+                  <Tag key={`mi-${m.index}-${ref}`}>
+                    ✦ {name}
+                    {interactive && (
+                      <TagRemove
+                        type="button"
+                        aria-label={`Remove ${name}`}
+                        onClick={() => removeMagicItem(ref)}
+                      >
+                        ×
+                      </TagRemove>
+                    )}
+                  </Tag>
+                );
+              })}
               {interactive && (
                 addingEquip ? (
                   <>
-                    <EquipTagInput
-                      value={equipDraft}
-                      onChange={(ev) => setEquipDraft(ev.target.value)}
-                      placeholder="Item name"
-                      autoFocus
-                      onKeyDown={(ev) => {
-                        if (ev.key === "Enter") addEquipment();
-                        if (ev.key === "Escape") {
-                          setAddingEquip(false);
-                          setEquipDraft("");
-                        }
-                      }}
-                    />
-                    <TagButton type="button" onClick={addEquipment} disabled={!equipDraft.trim()}>
-                      Add
-                    </TagButton>
+                    <EquipInputWrap>
+                      <EquipTagInput
+                        value={equipDraft}
+                        onChange={(ev) => {
+                          setEquipDraft(ev.target.value);
+                          setHighlightIdx(-1);
+                        }}
+                        placeholder="Item name"
+                        autoFocus
+                        role="combobox"
+                        aria-expanded={equipSuggestions.length > 0}
+                        aria-autocomplete="list"
+                        onBlur={() => setHighlightIdx(-1)}
+                        onKeyDown={(ev) => {
+                          if (ev.key === "ArrowDown" && equipSuggestions.length) {
+                            ev.preventDefault();
+                            setHighlightIdx((i) => (i + 1) % equipSuggestions.length);
+                          } else if (ev.key === "ArrowUp" && equipSuggestions.length) {
+                            ev.preventDefault();
+                            setHighlightIdx(
+                              (i) => (i - 1 + equipSuggestions.length) % equipSuggestions.length
+                            );
+                          } else if (ev.key === "Enter") {
+                            ev.preventDefault();
+                            addEquipment(
+                              highlightIdx >= 0 ? equipSuggestions[highlightIdx].name : undefined
+                            );
+                          } else if (ev.key === "Escape") {
+                            closeAddEquip();
+                          }
+                        }}
+                      />
+                      {equipSuggestions.length > 0 && (
+                        <Suggestions role="listbox">
+                          {equipSuggestions.map((s, i) => (
+                            <SuggestionItem
+                              key={s.name}
+                              type="button"
+                              role="option"
+                              aria-selected={i === highlightIdx}
+                              $active={i === highlightIdx}
+                              onMouseEnter={() => setHighlightIdx(i)}
+                              // mousedown (not click) fires before the input blur,
+                              // so the pick registers instead of being swallowed.
+                              onMouseDown={(ev) => {
+                                ev.preventDefault();
+                                addEquipment(s.name);
+                              }}
+                            >
+                              {s.name}
+                              {s.magic && <SuggestionTag>magic</SuggestionTag>}
+                            </SuggestionItem>
+                          ))}
+                        </Suggestions>
+                      )}
+                    </EquipInputWrap>
                     <TagButton
                       type="button"
-                      onClick={() => {
-                        setAddingEquip(false);
-                        setEquipDraft("");
-                      }}
+                      onClick={() => addEquipment()}
+                      disabled={!equipDraft.trim()}
                     >
+                      Add
+                    </TagButton>
+                    <TagButton type="button" onClick={closeAddEquip}>
                       Cancel
                     </TagButton>
                   </>
