@@ -550,6 +550,7 @@ export function deriveSheet(draft: CharacterDraft): DerivedSheet {
     initiative: mods.dex,
     armorClass: ac.ac,
     acNote: ac.note,
+    acBreakdown: ac.breakdown,
     armorWarning: ac.untrained.length
       ? `Not proficient with ${ac.untrained.join(" & ")} — Disadvantage on Strength/Dexterity d20 rolls${
           spellcasting.length ? " and can't cast spells" : ""

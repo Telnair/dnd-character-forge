@@ -3,6 +3,12 @@ import type { Feature } from "@/data/types";
 
 export type AbilityScores = Record<AbilityKey, number>;
 
+/** One contributor to the final Armor Class, for the sheet's calculation tooltip. */
+export interface AcComponent {
+  label: string;
+  value: number;
+}
+
 export type AbilityGenMethod = "standard" | "pointbuy" | "manual";
 
 export interface ClassEntry {
@@ -206,6 +212,8 @@ export interface DerivedSheet {
   initiative: number;
   armorClass: number;
   acNote: string;
+  /** Ordered AC contributors (armor/formula, magic, Defense, shield) that sum to `armorClass`. */
+  acBreakdown: AcComponent[];
   /** Warning when worn armor/shields aren't trained with (Disadvantage on STR/DEX, no spells). */
   armorWarning?: string;
   languages: string[];

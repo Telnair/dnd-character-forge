@@ -380,6 +380,24 @@ export function featureChoiceSpecs(draft: CharacterDraft): FeatureChoiceSpec[] {
   return specs;
 }
 
+/**
+ * Every feature/option the character actually has, keyed by index: the automatic
+ * class & subclass grants plus the options they've picked (Fighting Styles,
+ * Eldritch Invocations, Metamagic, Maneuvers). Used by systems that key off
+ * specific features by index — e.g. Armor Class reads the alternative Unarmored
+ * Defense features (Draconic Resilience, …) and the Defense Fighting Style from here.
+ */
+export function heldFeatureIndexes(draft: CharacterDraft): Set<string> {
+  const out = new Set<string>();
+  for (const entry of draft.classes) {
+    for (const idx of grantedFeatureIndexes(entry)) out.add(idx);
+  }
+  for (const spec of featureChoiceSpecs(draft)) {
+    for (const inst of spec.selected) out.add(baseOf(inst));
+  }
+  return out;
+}
+
 /** Cantrips the character chose for a given class. */
 function knownCantripsForClass(draft: CharacterDraft, classIndex: string): Set<string> {
   const set = new Set<string>();

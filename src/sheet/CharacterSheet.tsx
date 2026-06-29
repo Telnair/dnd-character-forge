@@ -238,6 +238,43 @@ const StatName = styled.div`
   color: ${({ theme }) => theme.colors.textDim};
 `;
 
+/** "ⓘ" affordance next to a stat label that carries an explanatory tooltip. */
+const InfoDot = styled.span`
+  margin-left: 0.3rem;
+  font-size: 0.8em;
+  color: ${({ theme }) => theme.colors.gold};
+  cursor: help;
+`;
+
+const AcCalc = styled.div`
+  min-width: 12rem;
+  padding: 0.6rem 0.75rem;
+`;
+
+const AcCalcTitle = styled.div`
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  color: ${({ theme }) => theme.colors.goldBright};
+  margin-bottom: 0.45rem;
+`;
+
+const AcRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0.13rem 0;
+  font-variant-numeric: tabular-nums;
+`;
+
+const AcTotalRow = styled(AcRow)`
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
+  color: ${({ theme }) => theme.colors.goldBright};
+  font-family: ${({ theme }) => theme.fonts.display};
+`;
+
 const HpControl = styled.div`
   display: grid;
   grid-template-columns: 1.35rem minmax(4.5rem, max-content) 1.35rem;
@@ -1051,7 +1088,34 @@ export const CharacterSheet = forwardRef<
               </StatValue>
             )}
             <StatName>
-              {acBonus !== 0 ? `Armor Class · ${formatModifier(acBonus)} boost` : "Armor Class"}
+              <Tooltip
+                content={
+                  <AcCalc>
+                    <AcCalcTitle>Armor Class</AcCalcTitle>
+                    {sheet.acBreakdown.map((c, i) => (
+                      <AcRow key={`${c.label}-${i}`}>
+                        <span>{c.label}</span>
+                        <span>{i === 0 ? c.value : formatModifier(c.value)}</span>
+                      </AcRow>
+                    ))}
+                    {acBonus !== 0 && (
+                      <AcRow>
+                        <span>Manual boost</span>
+                        <span>{formatModifier(acBonus)}</span>
+                      </AcRow>
+                    )}
+                    <AcTotalRow>
+                      <span>Total</span>
+                      <span>{effectiveAc}</span>
+                    </AcTotalRow>
+                  </AcCalc>
+                }
+              >
+                <span>
+                  {acBonus !== 0 ? `Armor Class · ${formatModifier(acBonus)} boost` : "Armor Class"}
+                  <InfoDot aria-label="How is AC calculated?">ⓘ</InfoDot>
+                </span>
+              </Tooltip>
             </StatName>
           </Stat>
           <Stat>
