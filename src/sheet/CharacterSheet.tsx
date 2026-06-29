@@ -239,13 +239,6 @@ const StatName = styled.div`
 `;
 
 /** "ⓘ" affordance next to a stat label that carries an explanatory tooltip. */
-const InfoDot = styled.span`
-  margin-left: 0.3rem;
-  font-size: 0.8em;
-  color: ${({ theme }) => theme.colors.gold};
-  cursor: help;
-`;
-
 const AcCalc = styled.div`
   min-width: 12rem;
   padding: 0.6rem 0.75rem;
@@ -574,6 +567,18 @@ const WeaponList = styled.div`
   gap: 0.45rem;
 `;
 
+// Weapons section: ONE grid for the whole list so every weapon shares the same
+// column tracks and lines up. Name is capped (so the meta line wraps instead of
+// stretching the column), ATK is content-width, Damage absorbs the slack (widest),
+// and the equip toggle is the last column. Each card spans all columns and re-uses
+// these tracks via `subgrid`, keeping its own border while staying aligned.
+const WeaponGrid = styled.div`
+  display: grid;
+  grid-template-columns: minmax(7rem, 12rem) auto 1fr auto;
+  row-gap: 0.45rem;
+  column-gap: 0.9rem;
+`;
+
 const WeaponRow = styled.div<{ $equipped: boolean }>`
   display: flex;
   flex-wrap: wrap;
@@ -591,8 +596,9 @@ const WeaponMain = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
-  flex: 1 1 9rem;
-  min-width: 9rem;
+  flex: 0 1 15rem;
+  min-width: 8rem;
+  max-width: 16rem;
 `;
 
 const WeaponName = styled.div`
@@ -670,19 +676,43 @@ const WeaponMeta = styled.div`
   color: ${({ theme }) => theme.colors.textDim};
 `;
 
+// Worn-items section: a simple flex wrapper holding just the equip toggle.
 const WeaponStats = styled.div`
   display: flex;
   gap: 0.45rem;
-  flex: 0 0 auto;
+  flex: 1 1 0%;
+  justify-content: flex-end;
+`;
+
+// A weapon card: spans all columns of the parent WeaponGrid and inherits its tracks
+// via `subgrid`, so its cells align with every other card while it keeps its border.
+// Neutralize WeaponMain's flex sizing here so the Name cell conforms to the grid
+// track (and the meta line wraps) instead of forcing the column wide.
+const WeaponGridRow = styled(WeaponRow)`
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: center;
+
+  & > ${WeaponMain} {
+    flex: initial;
+    min-width: 0;
+    max-width: none;
+  }
 `;
 
 const WeaponStat = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  gap: 0.12rem;
   text-align: center;
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radius.md};
   background: rgba(0, 0, 0, 0.25);
   padding: 0.3rem 0.55rem;
-  min-width: 3.2rem;
 `;
 
 const WeaponStatVal = styled.div`
@@ -690,7 +720,6 @@ const WeaponStatVal = styled.div`
   font-size: 1.05rem;
   color: ${({ theme }) => theme.colors.goldBright};
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 `;
 
 const WeaponStatName = styled.div`
@@ -701,10 +730,17 @@ const WeaponStatName = styled.div`
 `;
 
 // Theme-styled equip toggle rendered as a checkbox (not a native browser one).
+const EquipSpacer = styled.div`
+  flex: 0 0 auto;
+  width: 1.7rem;
+`;
+
 const EquipCheck = styled.button<{ $on: boolean }>`
   flex: 0 0 auto;
+  width: 1.7rem;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
   background: none;
   border: none;
@@ -1112,8 +1148,11 @@ export const CharacterSheet = forwardRef<
                 }
               >
                 <span>
-                  {acBonus !== 0 ? `Armor Class · ${formatModifier(acBonus)} boost` : "Armor Class"}
-                  <InfoDot aria-label="How is AC calculated?">ⓘ</InfoDot>
+                  {acBonus > 0
+                    ? `AC (${formatModifier(acBonus)} boost)`
+                    : acBonus < 0
+                      ? `AC (${formatModifier(acBonus)} penalty)`
+                      : "AC"}
                 </span>
               </Tooltip>
             </StatName>
@@ -1209,7 +1248,7 @@ export const CharacterSheet = forwardRef<
             <Card data-export-block>
               <CardLabel>Weapons</CardLabel>
               <CardContent>
-                <WeaponList>
+                <WeaponGrid>
                   {[...sheet.weapons]
                     .map((w) => ({
                       w,
@@ -1231,7 +1270,7 @@ export const CharacterSheet = forwardRef<
                         .map((e) => `+${e.dice}${e.type ? ` ${e.type}` : ""}`)
                         .join(", ");
                       return (
-                        <WeaponRow key={`${key}-${i}`} $equipped={equipped}>
+                        <WeaponGridRow key={`${key}-${i}`} $equipped={equipped}>
                           <WeaponMain>
                             <WeaponName>
                               {w.name}
@@ -1243,41 +1282,42 @@ export const CharacterSheet = forwardRef<
                             </WeaponName>
                             {meta.length > 0 && <WeaponMeta>{meta.join(" · ")}</WeaponMeta>}
                           </WeaponMain>
-                          <WeaponStats>
-                            <WeaponStat>
-                              <WeaponStatVal>{formatModifier(w.attackBonus)}</WeaponStatVal>
-                              <WeaponStatName>Atk</WeaponStatName>
-                            </WeaponStat>
-                            <WeaponStat>
-                              <WeaponStatVal>
-                                {formatDamage(w.damageDice, w.damageBonus, w.damageType)}
-                                {extra ? ` ${extra}` : ""}
-                              </WeaponStatVal>
-                              <WeaponStatName>
-                                {w.versatile
-                                  ? `Damage · ${w.versatile.dice} ${formatModifier(
-                                      w.versatile.bonus
-                                    )} two-handed`
-                                  : "Damage"}
-                              </WeaponStatName>
-                            </WeaponStat>
-                          </WeaponStats>
-                          {interactive && !w.magic && (
-                            <EquipCheck
-                              type="button"
-                              role="checkbox"
-                              aria-checked={equipped}
-                              aria-label={`${equipped ? "Unequip" : "Equip"} ${w.name}`}
-                              $on={equipped}
-                              onClick={() => toggleEquipped(key)}
-                            >
-                              <CheckBox $on={equipped}>{equipped ? "✓" : ""}</CheckBox>
-                            </EquipCheck>
-                          )}
-                        </WeaponRow>
+                          <WeaponStat>
+                            <WeaponStatVal>{formatModifier(w.attackBonus)}</WeaponStatVal>
+                            <WeaponStatName>Atk</WeaponStatName>
+                          </WeaponStat>
+                          <WeaponStat>
+                            <WeaponStatVal>
+                              {formatDamage(w.damageDice, w.damageBonus, w.damageType)}
+                              {extra ? ` ${extra}` : ""}
+                            </WeaponStatVal>
+                            <WeaponStatName>
+                              {w.versatile
+                                ? `Damage · ${w.versatile.dice} ${formatModifier(
+                                    w.versatile.bonus
+                                  )} two-handed`
+                                : "Damage"}
+                            </WeaponStatName>
+                          </WeaponStat>
+                          {interactive &&
+                            (!w.magic ? (
+                              <EquipCheck
+                                type="button"
+                                role="checkbox"
+                                aria-checked={equipped}
+                                aria-label={`${equipped ? "Unequip" : "Equip"} ${w.name}`}
+                                $on={equipped}
+                                onClick={() => toggleEquipped(key)}
+                              >
+                                <CheckBox $on={equipped}>{equipped ? "✓" : ""}</CheckBox>
+                              </EquipCheck>
+                            ) : (
+                              <EquipSpacer aria-hidden />
+                            ))}
+                        </WeaponGridRow>
                       );
                     })}
-                </WeaponList>
+                </WeaponGrid>
               </CardContent>
             </Card>
           )}
